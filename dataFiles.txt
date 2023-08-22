@@ -1,0 +1,46 @@
+-----------RFCML data files ---------------------------
+actCoords.mat
+	locations of the 165 SAs. in mm.
+	(in ML CS, see Buddy email 8/18/23. swap x/y to get to M1B)
+influenceFunctions.mat
+	inside, we find
+		"interactionMat", which is the surface normal influence matrix
+		"forceMat", which is the unit load force sets
+SVD.mat
+	U, S, V matrices from the SVD of "interactionMat" above
+nodeCoords.mat
+	surface node coordinates, in mm.
+	(in ML CS, see Buddy email 8/18/23. swap x/y to get to M1B)
+saID_ml.txt
+	SA IDs in the same order that they appear in the ML matrices.
+	(Bo created this file by matching x and y locations if actCoords.mat to GMT SA locations.)
+
+-----------GMT data files -----------------------------
+utility_mapping_M1B_labels-16-Feb-2023.xlsx
+	locations of the 170 SAs, types, max and min forces, air groups, etc. Do not use data from any other tabs, such as "HP"
+	(in M1B CS,  see Trupti email on 8/18/23)
+Afz-13-Apr-2023.csv
+	Afz = Fz influence matrix, 27685 surface nodes x 170 SAs
+Afx-24-Jul-2023.csv
+	Afx = Fx influence matrix,
+Afy-24-Jul-2023.csv
+	Afy = Fy influence matrix,
+U-13-Apr-2023.csv
+	U matrix, which gives Fz bending modes, 27685 surface nodes x 170 SAs
+***_whp***
+	same files as above, but with 176 columns, where the last 6 columns are for HPs, which have been treated the same way as the SAs
+HP_xy.txt
+	HP locations, in meter.
+	(in M1B. Trupti gave me these by email 8/17/23. utility_mapping_M1B_labels-16-Feb-2023.xlsx has same data but outdated.)
+NodeXYZsurface_meters.mat
+	only data in here is 'NodeXYZsurface_meters', which gives x,y,z in meters of the 27685 surface nodes
+	(swap x/y to get to M1B, see Trupti email on 8/18/23)
+XYBendingModes_GMT.npy
+	XY bending mode data created using Trupti's Afx and Afy, but with SVD done by Bo after removing the columns for single-axis SAs
+
+----------data files from the DCS---------------
+m1_force_distribution_matrix_conf.coffee
+	K matrix. 
+		N rows = 170 SAs * (Fx, Fy, Fz) for each SA = 510
+		N cols = net (Fx, Fy, Fz, Mx, My, Mz) seen by the HPs
+
