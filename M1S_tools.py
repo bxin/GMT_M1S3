@@ -3,6 +3,7 @@ import sys
 import h5py
 import numpy as np
 from scipy import interpolate
+import scipy.io
 import pandas as pd
 import matplotlib.pyplot as plt
 from datetime import datetime
@@ -30,6 +31,178 @@ dataDir  = './' #os.path.join(home, 'largeData', 'M1M3_ML')
 #nActuator = actID.shape[0]
 #xact = np.float64(fat[:, FATABLE_XPOSITION])
 #yact = np.float64(fat[:, FATABLE_YPOSITION])
+
+
+saID_ml = np.loadtxt('saID_ml.txt')
+saID_sw = np.loadtxt('saID_sw.txt')
+
+print('## bending modes & influence matrices etc from Buddy #####################')
+dataFolder = '/Users/bxin/Library/CloudStorage/OneDrive-SharedLibraries-GMTOCorp/M1S Portal - Documents'
+
+#read SA data
+dfSA = scipy.io.loadmat(dataFolder+'/M1 Testing/RFCML Optical Testing/bending modes/actCoords.mat')
+sax_ml = dfSA['yAct']/1e3 #turn into meter #swap x/y to get to M1B (M1DCS uses M1B!!!)
+say_ml = dfSA['xAct']/1e3 #turn into meter
+print('ML actuators = ', len(sax_ml), len(say_ml))
+
+#read Afz (Fz influence matrix)
+df = scipy.io.loadmat(dataFolder+'/M1 Testing/RFCML Optical Testing/bending modes/influenceFunctions.mat')
+Afn_ml = df['interactionMat']
+fv_ml = df['forceMat'] #fv = fv^T
+print('Afn = ',Afn_ml.shape)
+print('fv = ', fv_ml.shape)
+# this is Afz only; it is 6991 x 165.
+
+#read Fz Bending Mode
+mat = scipy.io.loadmat(dataFolder+'/M1 Testing/RFCML Optical Testing/bending modes/SVD.mat')
+UMat_ml = mat['U']
+SMat_ml = mat['S']
+VMat_ml = mat['V']
+print('U matrix', UMat_ml.shape)
+
+#read FEA nodes data
+mat = scipy.io.loadmat(dataFolder+'/M1 Testing/RFCML Optical Testing/bending modes/nodeCoords.mat')
+nodex_ml = mat['y']/1e3 #turn into meter #swap x/y to get to M1B (M1DCS uses M1B!!!)
+nodey_ml = mat['x']/1e3 #turn into meter
+print('N node = ', len(nodex_ml))
+
+############normalize bending modes to RMS = 1um ###################
+UMat_ml *= np.sqrt(UMat_ml.shape[0])
+for modeID in range(1, UMat_ml.shape[1]+1):
+    VMat_ml[:, modeID-1] *= 1e3/SMat_ml[modeID-1, modeID-1]*np.sqrt(UMat_ml.shape[0])
+    #1e3 due to nanometer to micron conversion; RFCML mode shapes are in nanometers
+
+print('## bending modes & influence matrices etc from Trupti #####################')
+dataFolder = '/Users/bxin/Library/CloudStorage/OneDrive-SharedLibraries-GMTOCorp/M1S Portal - Documents'
+
+#read SA data
+dfSA = pd.read_excel(dataFolder+'/2.4 Utilities/03. Utilities Distribution/utility_mapping_M1B_labels-16-Feb-2023.xlsx')
+sax = np.array(dfSA['x_m']) #in M1B
+say = np.array(dfSA['y_m'])
+saz = np.array(dfSA['z_m'])
+saID = np.array(dfSA['LSNo'])
+saReqMaxFx_N = np.array(dfSA['ReqMaxFx_N']) #max Fx the SA is allowed to produce??
+nact = len(dfSA)
+print('N actuators = ', nact)
+
+#read Afz (Fz influence matrix)
+df = pd.read_csv(dataFolder+'/influnce_matrix_files/Afz-13-Apr-2023.csv', header=None)
+Afz = np.array(df)
+print('Afz = ',Afz.shape)
+# this is Afz only; it is 27685 x 170.
+
+#read Afx (Fx influence matrix)
+df = pd.read_csv(dataFolder+'/influnce_matrix_files/Afx-24-Jul-2023.csv', header=None)
+Afx = np.array(df)
+print('Afx = ', Afx.shape)
+#read Afy (Fy influence matrix)
+df = pd.read_csv(dataFolder+'/influnce_matrix_files/Afy-24-Jul-2023.csv', header=None)
+Afy = np.array(df)
+print('Afy = ', Afy.shape)
+
+#read Fz Bending Modes & forces
+df = pd.read_csv(dataFolder+'/influnce_matrix_files/U-13-Apr-2023.csv', header=None)
+UMat = np.array(df)
+print('U matrix', UMat.shape)
+df = pd.read_csv(dataFolder+'/influnce_matrix_files/V-13-Apr-2023.csv', header=None)
+VMat = np.array(df)
+print('V matrix', VMat.shape)
+df = pd.read_csv(dataFolder+'/influnce_matrix_files/S-13-Apr-2023.csv', header=None)
+SMat = np.array(df)
+print('S matrix', SMat.shape)
+
+#read FEA nodes data
+mat = scipy.io.loadmat(dataFolder+'/influnce_matrix_files/NodeXYZsurface_meters.mat')
+nodeID = mat['NodeXYZsurface_meters'][:,0]
+nodex = mat['NodeXYZsurface_meters'][:,2] #swap x/y to get to M1B
+nodey = mat['NodeXYZsurface_meters'][:,1]
+nodez = mat['NodeXYZsurface_meters'][:,3]
+print('N node = ', len(nodeID))
+
+############normalize bending modes to RMS = 1um ###################
+UMat *= np.sqrt(UMat.shape[0])
+for modeID in range(1, UMat.shape[1]+1):
+    VMat[:, modeID-1] *= 1e-6/SMat[modeID-1, modeID-1]*np.sqrt(UMat.shape[0])
+    #1e-6 due to meter to micron conversion
+
+npuck = np.zeros(nact)
+for i in range(nact):
+    if dfSA['LSActType'][i] == 0: #Single Axis on Single Puck
+        npuck[i] = 1
+    elif dfSA['LSActType'][i] == 1: #Single Axis on Dual Puck LS
+        npuck[i] = 2
+    elif dfSA['LSActType'][i] == 2: #Single Axis on triple puck LS
+        npuck[i] = 3
+    elif dfSA['LSActType'][i] == 30: #Single Axis on Single double triple LS puck
+        npuck[i] = 1
+    elif dfSA['LSActType'][i] == 31: #Single Axis on Single double triple LS bar
+        npuck[i] = 2
+    elif dfSA['LSActType'][i] == 40: #Triple Axis RH on triple puck LS
+        npuck[i] = 3
+    elif dfSA['LSActType'][i] == 41: #Triple Axis LH on triple puck LS
+        npuck[i] = 3
+    elif dfSA['LSActType'][i] == 5: #Triple Axis on quad puck LS
+        npuck[i] = 2
+
+def mlFvec2gmtFvec(mlFvec):
+    '''
+    convert a ML force vector (165x1) into a GMT force vector (170x1)
+    input:
+        mlFvec: ML force vector (165x1)
+    output:
+        GMT force vector (170x1)
+    '''
+    gmtFvec = np.zeros(nact)
+    for i in range(nact):
+        gmtFvec[i] = mlFvec[saID2mlModeID(saID[i])-1]
+        if np.array(dfSA['LSActType'])[i]==5: #quad
+            gmtFvec[i] /= 2.
+    return gmtFvec
+
+def saID2mlModeID(gmtsaID):
+    '''
+    convert GMT actuator ID to modeID in ML list.
+    input:
+        gmtsaID: integer (cannot be an array or list)
+        This can be 170 different numbers: 101, 102, etc.
+    output:
+        ML mode ID. This number is in the range [1, 165]
+    '''
+    idx = np.where(saID_ml==gmtsaID)[0]
+    idx1 = np.where(saID_ml%1e6==gmtsaID)[0]
+    idx2 = np.where(saID_ml//1e6==gmtsaID)[0]
+    if len(idx)==1:
+        return idx[0]+1
+    elif len(idx1) == 1:
+        return idx1[0]+1
+    elif len(idx2) == 1:
+        return idx2[0]+1
+
+def swFvec2gmtFvec(swFvec):
+    '''
+    convert Steve West's force vector (170x1) into a GMT force vector (170x1)
+    input:
+        swFvec: SW force vector (170x1)
+    output:
+        GMT force vector (170x1)
+    '''
+    gmtFvec = np.zeros(nact)
+    for i in range(nact):
+        gmtFvec[i] = swFvec[saID2swModeID(saID[i])-1]
+
+    return gmtFvec
+
+def saID2swModeID(gmtsaID):
+    '''
+    convert GMT actuator ID to modeID in Steve West's list.
+    input:
+        gmtsaID: integer (cannot be an array or list)
+        This can be 170 different numbers: 101, 102, etc.
+    output:
+        SW mode ID. This number is in the range [1, 170]
+    '''
+    idx = np.where(saID_sw==gmtsaID)[0]
+    return idx[0]+1
 
 def readH5Map(fileset, dataset = '/dataset'):
     '''
