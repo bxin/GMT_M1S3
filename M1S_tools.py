@@ -36,6 +36,12 @@ dataDir  = './' #os.path.join(home, 'largeData', 'M1M3_ML')
 saID_ml = np.loadtxt('saID_ml.txt')
 saID_sw = np.loadtxt('saID_sw.txt')
 
+r_S1_center_in_S7 = 8.710 #distance to S1 optical axis in m
+diameter_of_CA = 8.365 #CA diamter in m
+radius_of_curvature = 36.000 #radius of curvature in m
+conic = -0.998286
+radius_of_CA = diameter_of_CA/2.0
+
 print('## bending modes & influence matrices etc from Buddy #####################')
 dataFolder = '/Users/bxin/Library/CloudStorage/OneDrive-SharedLibraries-GMTOCorp/M1S Portal - Documents'
 
