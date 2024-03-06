@@ -58,6 +58,7 @@ try:
     fv_ml = df['forceMat'] #fv = fv^T
     print('Afn = ',Afn_ml.shape)
     print('fv = ', fv_ml.shape)
+    nact_ml = Afn_ml.shape[1]
     # this is Afz only; it is 6991 x 165.
 
     #read Fz Bending Mode
@@ -171,6 +172,27 @@ def mlFvec2gmtFvec(mlFvec):
         if np.array(dfSA['LSActType'])[i]==5: #quad
             gmtFvec[i] /= 2.
     return gmtFvec
+
+def gmtFvec2mlFvec(gmtFvec):
+    '''
+    convert a GMT force vector (170x1) into a ML force vector (165x1)
+    input:
+        gmtFvec: GMT force vector (170x1)
+    output:
+        mlFvec: ML force vector (165x1)
+    '''
+    mlFvec = np.zeros(nact_ml)
+    for i in range(nact_ml):
+        idx = np.where(saID==(saID_ml[i]))[0]
+        idx1 = np.where(saID==(saID_ml[i]%1e6))[0]
+        idx2 = np.where(saID==(saID_ml[i]//1e6))[0]
+        if len(idx) == 1:
+            mlFvec[i] = gmtFvec[idx]
+        elif len(idx1) == 1:
+            mlFvec[i] += gmtFvec[idx1]
+        elif len(idx2) == 1:
+            mlFvec[i] += gmtFvec[idx2]
+    return mlFvec
 
 def saID2mlModeID(gmtsaID):
     '''
