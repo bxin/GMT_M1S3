@@ -28,9 +28,9 @@ utility_mapping_M1B_labels-16-Feb-2023.xlsx
 Afz-13-Apr-2023.csv
 	Afz = Fz influence matrix, 27685 surface nodes x 170 SAs
 Afx-24-Jul-2023.csv
-	Afx = Fx influence matrix,
+	Afx = Fx influence matrix, 27685 surface nodes x 170 SAs
 Afy-24-Jul-2023.csv
-	Afy = Fy influence matrix,
+	Afy = Fy influence matrix, 27685 surface nodes x 170 SAs
 U-13-Apr-2023.csv
 	U matrix, which gives Fz bending modes, 27685 surface nodes x 170 SAs
 ***_whp***
