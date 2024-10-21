@@ -43,17 +43,16 @@ conic = -0.998286
 radius_of_CA = diameter_of_CA/2.0
 
 print('## bending modes & influence matrices etc from Buddy #####################')
-dataFolder = '/Users/bxin/Library/CloudStorage/OneDrive-SharedLibraries-GMTOCorp/M1S Portal - Documents'
 
 try:
     #read SA data
-    dfSA = scipy.io.loadmat(dataFolder+'/M1 Testing/RFCML Optical Testing/bending modes/actCoords.mat')
+    dfSA = scipy.io.loadmat('dataFiles/actCoords_ml.mat')
     sax_ml = dfSA['yAct']/1e3 #turn into meter #swap x/y to get to M1B (M1DCS uses M1B!!!)
     say_ml = dfSA['xAct']/1e3 #turn into meter
     print('ML actuators = ', len(sax_ml), len(say_ml))
 
     #read Afz (Fz influence matrix)
-    df = scipy.io.loadmat(dataFolder+'/M1 Testing/RFCML Optical Testing/bending modes/influenceFunctions.mat')
+    df = scipy.io.loadmat('dataFiles/influenceFunctions_ml.mat')
     Afn_ml = df['interactionMat']
     fv_ml = df['forceMat'] #fv = fv^T
     print('Afn = ',Afn_ml.shape)
@@ -62,14 +61,14 @@ try:
     # this is Afz only; it is 6991 x 165.
 
     #read Fz Bending Mode
-    mat = scipy.io.loadmat(dataFolder+'/M1 Testing/RFCML Optical Testing/bending modes/SVD.mat')
+    mat = scipy.io.loadmat('dataFiles/SVD_ml.mat')
     UMat_ml = mat['U']
     SMat_ml = mat['S']
     VMat_ml = mat['V']
     print('U matrix', UMat_ml.shape)
 
     #read FEA nodes data
-    mat = scipy.io.loadmat(dataFolder+'/M1 Testing/RFCML Optical Testing/bending modes/nodeCoords.mat')
+    mat = scipy.io.loadmat('dataFiles/nodeCoords_ml.mat')
     nodex_ml = mat['y']/1e3 #turn into meter #swap x/y to get to M1B (M1DCS uses M1B!!!)
     nodey_ml = mat['x']/1e3 #turn into meter
     print('N node = ', len(nodex_ml))

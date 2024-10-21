@@ -1,14 +1,14 @@
 -----------RFCML data files ---------------------------
-actCoords.mat
+actCoords_ml.mat
 	locations of the 165 SAs. in mm.
 	(in ML CS, see Buddy email 8/18/23. swap x/y to get to M1B)
-influenceFunctions.mat
+influenceFunctions_ml.mat
 	inside, we find
 		"interactionMat", which is the surface normal influence matrix
 		"forceMat", which is the unit load force sets
-SVD.mat
+SVD_ml.mat
 	U, S, V matrices from the SVD of "interactionMat" above
-nodeCoords.mat
+nodeCoords_ml.mat
 	surface node coordinates, in mm.
 	(in ML CS, see Buddy email 8/18/23. swap x/y to get to M1B)
 saID_ml.txt
