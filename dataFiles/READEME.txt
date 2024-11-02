@@ -6,6 +6,7 @@ influenceFunctions_ml.mat
 	inside, we find
 		"interactionMat", which is the surface normal influence matrix
 		"forceMat", which is the unit load force sets
+		(forces are in N, and displacements are in nanometers)
 SVD_ml.mat
 	U, S, V matrices from the SVD of "interactionMat" above
 nodeCoords_ml.mat

@@ -162,8 +162,11 @@ def mlFvec2gmtFvec(mlFvec):
     convert a ML force vector (165x1) into a GMT force vector (170x1)
     input:
         mlFvec: ML force vector (165x1)
+        Buddy has 165 acts, 1 under each quad. the force is 2*F.
     output:
         GMT force vector (170x1)
+        GMT has 170 acts, including 5 pairs under quad loadspreaders. 
+        For example, one pair is 144 and 1144. They always have equal force, F.
     '''
     gmtFvec = np.zeros(nact)
     for i in range(nact):
@@ -183,14 +186,15 @@ def gmtFvec2mlFvec(gmtFvec):
     mlFvec = np.zeros(nact_ml)
     for i in range(nact_ml):
         idx = np.where(saID==(saID_ml[i]))[0]
-        idx1 = np.where(saID==(saID_ml[i]%1e6))[0]
-        idx2 = np.where(saID==(saID_ml[i]//1e6))[0]
         if len(idx) == 1:
             mlFvec[i] = gmtFvec[idx]
-        elif len(idx1) == 1:
-            mlFvec[i] += gmtFvec[idx1]
-        elif len(idx2) == 1:
-            mlFvec[i] += gmtFvec[idx2]
+        if saID_ml[i]>1e6:
+            idx1 = np.where(saID==(saID_ml[i]%1e6))[0] #e.g. saID_ml can be 144001144
+            idx2 = np.where(saID==(saID_ml[i]//1e6))[0]
+            if len(idx1) == 1:
+                mlFvec[i] += gmtFvec[idx1]
+            if len(idx2) == 1:
+                mlFvec[i] += gmtFvec[idx2]
     return mlFvec
 
 def saID2mlModeID(gmtsaID):
