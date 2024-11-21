@@ -6,14 +6,15 @@ from scipy import interpolate
 import scipy.io
 import pandas as pd
 import matplotlib.pyplot as plt
+reversed_cmap = plt.cm.coolwarm.reversed()
 from datetime import datetime
 from datetime import timedelta
 
 from os.path import expanduser
 
-#import MySQLdb as mdb
-#from sqlalchemy import create_engine
-##from sqlalchemy import exc
+from pymongo import MongoClient
+HOST = "localhost"
+PORT = 27017
 
 #from FATABLE import *
 
@@ -155,7 +156,7 @@ try:
             npuck[i] = 2
 
 except FileNotFoundError:
-    print('Data not exist. Are you sure they are there?')
+    print('Data do not exist. Are you sure they are there?')
                 
 def mlFvec2gmtFvec(mlFvec):
     '''
@@ -304,7 +305,7 @@ def mkXYGrid(s, centerRow, centerCol, pixelSize):
     [x, y] = np.meshgrid(xVec, yVec)
     return x,y
 
-def mkM1M3disp(m1s, m3s, x1, y1, x3, y3):
+def showSurfMap(m1s, m3s, x1, y1, x3, y3):
     '''
     takes the m1 and m3 surfaces, interpolate m3 onto m1 grid, so that we can display then as one plot.
     '''
@@ -317,6 +318,78 @@ def mkM1M3disp(m1s, m3s, x1, y1, x3, y3):
     s[idx] = s_temp[idx]
     return s
 
+def showForceMap(forces, figure_title):
+    forces = -forces
+    fig, ax = plt.subplots(1,1,figsize=(10,8))
+    plt.scatter(sax, say, c=forces, cmap=reversed_cmap)
+    #plt.scatter(sax_ml, say_ml, s=100, facecolors='none', edgecolors='k')
+    for i in range(len(sax)):
+        if (np.any(abs(sax[i]+say[i]-sax[:i]-say[:i])<1e-4)):
+            plt.text(sax[i]+.05, say[i]-0.15, '%.0f'%forces[i],color='r',fontsize=8)
+        else:
+            plt.text(sax[i]+.05, say[i]+.05, '%.0f'%forces[i],color='r',fontsize=8)
+    plt.axis('equal')
+    plt.xlabel('x in meter')
+    plt.ylabel('y in meter')
+    plt.colorbar()
+    plt.title(figure_title)
+    
+client = MongoClient(HOST, PORT)
+tele = client.gmt_tele_1.tele_events
+
+def printDBVar(myt, table_name, duration_in_s=1):
+    '''
+    print out values of table_name in the duration following myt timestamp (to the minute)
+    '''
+    print(table_name)
+    try:
+        [month, day, hour, minute] = myt
+        t0 = float(datetime(2024, month, day, hour, minute, 0).strftime('%s'))
+    except TypeError:
+        t0 = myt
+        print(datetime.fromtimestamp(myt).strftime('%Y-%m-%d %H:%M:%S'))
+    start_time = t0
+    end_time = t0+duration_in_s
+
+    records = tele.find({"ts":{"$gt":start_time*1000000000.0,"$lt":end_time*1000000000.0},
+                     "src":{"$eq":f"{table_name}"}})
+    for record in records:
+        print(record['value'])
+        
+def getDBData(myt, table_name, duration_in_s=60, samples=60):
+    '''
+    return a numpy array containing the forces in the duration following myt timestamp (to the minute)
+        first dimension: sampling time (1-samples)
+        second dimension: actuator (1-170)
+        third dimension: x, y, or z
+    '''
+    print(table_name)
+    try:
+        [month, day, hour, minute] = myt
+        t0 = float(datetime(2024, month, day, hour, minute, 0).strftime('%s'))
+        print(' duration = ', duration_in_s, ' s')
+    except TypeError:
+        t0 = myt
+        print(datetime.fromtimestamp(myt).strftime('%Y-%m-%d %H:%M:%S'), ' duration = ', duration_in_s, ' s')
+    start_time = t0
+    end_time = t0+duration_in_s
+
+    records = tele.find({"ts":{"$gt":start_time*1000000000.0,"$lt":end_time*1000000000.0},
+                     "src":{"$eq":f"{table_name}"}})
+    force_data = []
+    ts_data = []
+    desired_interval = duration_in_s/samples
+    record_clock = 0
+    for record in records:
+        record_clock += 0.1
+        if record_clock > desired_interval-0.01:
+            force_data.append(record['value'])
+            ts_data.append(record["ts"]/ 1000000000.0)
+            #print(record_clock)
+            record_clock = 0
+        #print()
+    print(np.array(force_data).shape)
+    return np.array(force_data), np.array(ts_data)
 
 def ZernikeMaskedFit(S, x, y, numTerms, mask, e):
 
