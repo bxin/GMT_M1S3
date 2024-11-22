@@ -43,6 +43,10 @@ radius_of_curvature = 36.000 #radius of curvature in m
 conic = -0.998286
 radius_of_CA = diameter_of_CA/2.0
 
+lbs2N = 4.4482216153
+in2mm = 25.4
+N2kg = 0.10197
+
 print('## bending modes & influence matrices etc from Buddy #####################')
 
 try:
@@ -155,6 +159,10 @@ try:
         elif dfSA['LSActType'][i] == 5: #Triple Axis on quad puck LS
             npuck[i] = 2
 
+    #for making plots, use Optical Coordinate System (ocs)
+    sax_ocs = say
+    say_ocs = sax
+    
 except FileNotFoundError:
     print('Data do not exist. Are you sure they are there?')
                 
@@ -305,10 +313,30 @@ def mkXYGrid(s, centerRow, centerCol, pixelSize):
     [x, y] = np.meshgrid(xVec, yVec)
     return x,y
 
+def m1b_to_mlcs(m1b_vec):
+    mlcs_vec = np.zeros_like(m1b_vec)
+    if m1b_vec.ndim == 2 and m1b_vec.shape[1] == 6: # e.g. (100,6)
+        mlcs_vec[:,0] = m1b_vec[:,1] #m1b y is mlcs x
+        mlcs_vec[:,1] = m1b_vec[:,0] #m1b x is mlcs y
+        mlcs_vec[:,2] = -m1b_vec[:,2] #m1b z is mlcs -z
+        mlcs_vec[:,3] = m1b_vec[:,4] #m1b Ry is mlcs Rx
+        mlcs_vec[:,4] = m1b_vec[:,3]  #m1b Rx is mlcs Ry
+        mlcs_vec[:,5] = -m1b_vec[:,5] #m1b Rz is mlcs -Rz
+    elif m1b_vec.ndim == 3 and m1b_vec.shape[2] == 3: # e.g. (100,170,3)
+        mlcs_vec[:,:,0] = m1b_vec[:,:,1] #m1b y is mlcs x
+        mlcs_vec[:,:,1] = m1b_vec[:,:,0] #m1b x is mlcs y
+        mlcs_vec[:,:,2] = -m1b_vec[:,:,2] #m1b z is mlcs -z
+    elif m1b_vec.ndim == 1: #e.g. (170,)
+        mlcs_vec = -m1b_vec
+    else:
+        raise TypeError(f"Unknown data type with dimension: {m1b_vec.shape}.")
+    return mlcs_vec
+
 def showSurfMap(m1s, m3s, x1, y1, x3, y3):
     '''
     takes the m1 and m3 surfaces, interpolate m3 onto m1 grid, so that we can display then as one plot.
     '''
+    print('input forces and output figure both in Optical Coordinate System (OCS)')
     s = m1s
     r1 = np.sqrt(x1**2 + y1**2)
     idx = (r1<m3ORC)*(r1>m3IRC)
@@ -319,7 +347,37 @@ def showSurfMap(m1s, m3s, x1, y1, x3, y3):
     return s
 
 def showForceMap(forces, figure_title):
-    forces = -forces
+    '''
+    input: 
+        forces should already be in optical CS (OCS)
+    output:
+        force map displayed in optical CS (OCS)
+        
+    '''
+    print('input forces and output figure both in Optical Coordinate System (OCS)')
+    fig, ax = plt.subplots(1,1,figsize=(10,8))
+    plt.scatter(sax_ocs, say_ocs, c=forces) #, cmap=reversed_cmap)
+    #plt.scatter(sax_ml, say_ml, s=100, facecolors='none', edgecolors='k')
+    for i in range(len(sax)):
+        if (np.any(abs(sax_ocs[i]+say_ocs[i]-sax_ocs[:i]-say_ocs[:i])<1e-4)):
+            plt.text(sax_ocs[i]+.05, say_ocs[i]-0.15, '%.0f'%forces[i],color='r',fontsize=8)
+        else:
+            plt.text(sax_ocs[i]+.05, say_ocs[i]+.05, '%.0f'%forces[i],color='r',fontsize=8)
+    plt.axis('equal')
+    plt.xlabel('x in meter')
+    plt.ylabel('y in meter')
+    plt.colorbar()
+    plt.title(figure_title)
+
+def showForceMap_M1B(forces, figure_title):
+    '''
+    input: 
+        forces should already be in M1B
+    output:
+        force map displayed in M1B
+        
+    '''
+    print('input forces and output figure both in M1B')
     fig, ax = plt.subplots(1,1,figsize=(10,8))
     plt.scatter(sax, say, c=forces, cmap=reversed_cmap)
     #plt.scatter(sax_ml, say_ml, s=100, facecolors='none', edgecolors='k')
@@ -389,7 +447,8 @@ def getDBData(myt, table_name, duration_in_s=60, samples=60):
             record_clock = 0
         #print()
     print(np.array(force_data).shape)
-    return np.array(force_data), np.array(ts_data)
+    #we convert all data to be consistent with RFCML surface maps (so that our heads won't be spinning!)
+    return m1b_to_mlcs(np.array(force_data)), np.array(ts_data)
 
 def ZernikeMaskedFit(S, x, y, numTerms, mask, e):
 
