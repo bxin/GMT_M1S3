@@ -33,9 +33,8 @@ dataDir  = './' #os.path.join(home, 'largeData', 'M1M3_ML')
 #xact = np.float64(fat[:, FATABLE_XPOSITION])
 #yact = np.float64(fat[:, FATABLE_YPOSITION])
 
-
-saID_ml = np.loadtxt('saID_ml.txt')
-saID_sw = np.loadtxt('saID_sw.txt')
+saID_ml = np.loadtxt('../model_data/saID_ml.txt')
+saID_sw = np.loadtxt('../model_data/saID_sw.txt')
 
 r_S1_center_in_S7 = 8.710 #distance to S1 optical axis in m
 diameter_of_CA = 8.365 #CA diamter in m
@@ -46,18 +45,24 @@ radius_of_CA = diameter_of_CA/2.0
 lbs2N = 4.4482216153
 in2mm = 25.4
 N2kg = 0.10197
+rad2arcsec = 180./np.pi*3600
+HP2XYZ_force = np.loadtxt('../model_data/HP2XYZ_force.txt')
+XYZ2HP_position = np.loadtxt('../model_data/XYZ2HP_position.txt')
+HP2XYZ_position = np.linalg.pinv(XYZ2HP_position)
+
+rb_label = ['x','y','z','Rx','Ry','Rz']
 
 print('## bending modes & influence matrices etc from Buddy #####################')
 
 try:
     #read SA data
-    dfSA = scipy.io.loadmat('dataFiles/actCoords_ml.mat')
+    dfSA = scipy.io.loadmat('../model_data/actCoords_ml.mat')
     sax_ml = dfSA['yAct']/1e3 #turn into meter #swap x/y to get to M1B (M1DCS uses M1B!!!)
     say_ml = dfSA['xAct']/1e3 #turn into meter
     print('ML actuators = ', len(sax_ml), len(say_ml))
 
     #read Afz (Fz influence matrix)
-    df = scipy.io.loadmat('dataFiles/influenceFunctions_ml.mat')
+    df = scipy.io.loadmat('../model_data/influenceFunctions_ml.mat')
     Afn_ml = df['interactionMat']
     fv_ml = df['forceMat'] #fv = fv^T
     print('Afn = ',Afn_ml.shape)
@@ -66,14 +71,14 @@ try:
     # this is Afz only; it is 6991 x 165.
 
     #read Fz Bending Mode
-    mat = scipy.io.loadmat('dataFiles/SVD_ml.mat')
+    mat = scipy.io.loadmat('../model_data/SVD_ml.mat')
     UMat_ml = mat['U']
     SMat_ml = mat['S']
     VMat_ml = mat['V']
     print('U matrix', UMat_ml.shape)
 
     #read FEA nodes data
-    mat = scipy.io.loadmat('dataFiles/nodeCoords_ml.mat')
+    mat = scipy.io.loadmat('../model_data/nodeCoords_ml.mat')
     nodex_ml = mat['y']/1e3 #turn into meter #swap x/y to get to M1B (M1DCS uses M1B!!!)
     nodey_ml = mat['x']/1e3 #turn into meter
     print('N node = ', len(nodex_ml))
@@ -84,7 +89,7 @@ try:
         VMat_ml[:, modeID-1] *= 1e3/SMat_ml[modeID-1, modeID-1]*np.sqrt(UMat_ml.shape[0])
         #1e3 due to nanometer to micron conversion; RFCML mode shapes are in nanometers
 except FileNotFoundError:
-    print('Data not exist. Are you sure they are there?')
+    print('***Data not exist. Are you sure they are there?***')
     
 print('## bending modes & influence matrices etc from Trupti #####################')
 dataFolder = '/Users/bxin/Library/CloudStorage/OneDrive-SharedLibraries-GMTOCorp/M1S Portal - Documents'
@@ -331,6 +336,44 @@ def m1b_to_mlcs(m1b_vec):
     else:
         raise TypeError(f"Unknown data type with dimension: {m1b_vec.shape}.")
     return mlcs_vec
+def mlcs_to_m1b(mlcs_vec):
+    '''
+    m1cs_to_m1b is the reverse of m1b_to_mlcs
+    '''
+    return m1b_to_mlcs(mlcs_vec)
+
+def plotRB(mirror_z, length_unit='mm', angle_unit='arcsec'):
+    '''
+        input mirror position as a Tx6 numpy array. T is the number of time samples
+    '''
+    fig, ax = plt.subplots(1,2,figsize=(15, 4))
+    if length_unit == 'mm':
+        f=1e3
+    elif length_unit == 'um':
+        f=1e6
+    elif length_unit == 'nm':
+        f=1e9
+    for i in [0,1,2]:
+        ax[0].plot(tt-tt[0], mirror_z[:,i]*f, '-o', label=rb_label[i]);
+    ax[0].set_xlabel('time (s)')
+    ax[0].set_title('Translations (%s) in Optical Coordinate System'%length_unit);
+    #plt.gca().invert_yaxis();
+    ax[0].legend()
+    ax[0].grid();
+
+    if angle_unit == 'arcsec':
+        f=180/np.pi*3600
+    elif length_unit == 'mrad':
+        f=1e3
+    elif length_unit == 'deg':
+        f=180/np.pi
+    for i in [3,4,5]:
+        ax[1].plot(tt-tt[0], mirror_z[:,i]*f, '-o', label=rb_label[i]);
+    ax[1].set_xlabel('time (s)')
+    ax[1].set_title('Rotations (%s) in Optical Coordinate System'%angle_unit);
+    #plt.gca().invert_yaxis();
+    ax[1].legend()
+    ax[1].grid();
 
 def showSurfMap(m1s, m3s, x1, y1, x3, y3):
     '''
