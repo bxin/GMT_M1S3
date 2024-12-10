@@ -490,8 +490,13 @@ def getDBData(myt, table_name, duration_in_s=60, samples=60):
             record_clock = 0
         #print()
     print(np.array(force_data).shape)
-    #we convert all data to be consistent with RFCML surface maps (so that our heads won't be spinning!)
-    return m1b_to_mlcs(np.array(force_data)), np.array(ts_data)
+    if 'dewpoint' in table_name:
+        #no sign change
+        aa = np.array(force_data) - 273.15
+    else:
+        #we convert all data to be consistent with RFCML surface maps (so that our heads won't be spinning!)
+        aa = m1b_to_mlcs(np.array(force_data))
+    return aa, np.array(ts_data)
 
 def ZernikeMaskedFit(S, x, y, numTerms, mask, e):
 
