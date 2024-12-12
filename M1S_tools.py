@@ -41,11 +41,14 @@ diameter_of_CA = 8.365 #CA diamter in m
 radius_of_curvature = 36.000 #radius of curvature in m
 conic = -0.998286
 radius_of_CA = diameter_of_CA/2.0
+def surfFunc(r2):
+    return r2/(radius_of_curvature+np.sqrt(radius_of_curvature**2-(1+conic)*r2))
 
 lbs2N = 4.4482216153
 in2mm = 25.4
 N2kg = 0.10197
 rad2arcsec = 180./np.pi*3600
+arcsec2rad = 1./rad2arcsec
 HP2XYZ_force = np.loadtxt('../model_data/HP2XYZ_force.txt')
 XYZ2HP_position = np.loadtxt('../model_data/XYZ2HP_position.txt')
 HP2XYZ_position = np.linalg.pinv(XYZ2HP_position)
@@ -320,13 +323,15 @@ def mkXYGrid(s, centerRow, centerCol, pixelSize):
 
 def m1b_to_mlcs(m1b_vec):
     mlcs_vec = np.zeros_like(m1b_vec)
-    if m1b_vec.ndim == 2 and m1b_vec.shape[1] == 6: # e.g. (100,6)
-        mlcs_vec[:,0] = m1b_vec[:,1] #m1b y is mlcs x
-        mlcs_vec[:,1] = m1b_vec[:,0] #m1b x is mlcs y
-        mlcs_vec[:,2] = -m1b_vec[:,2] #m1b z is mlcs -z
-        mlcs_vec[:,3] = m1b_vec[:,4] #m1b Ry is mlcs Rx
-        mlcs_vec[:,4] = m1b_vec[:,3]  #m1b Rx is mlcs Ry
-        mlcs_vec[:,5] = -m1b_vec[:,5] #m1b Rz is mlcs -Rz
+    if m1b_vec.ndim == 2:
+        if m1b_vec.shape[1] >= 3: # e.g. (170,3)
+            mlcs_vec[:,0] = m1b_vec[:,1] #m1b y is mlcs x
+            mlcs_vec[:,1] = m1b_vec[:,0] #m1b x is mlcs y
+            mlcs_vec[:,2] = -m1b_vec[:,2] #m1b z is mlcs -z
+        if m1b_vec.shape[1] == 6: # e.g. (100,6)
+            mlcs_vec[:,3] = m1b_vec[:,4] #m1b Ry is mlcs Rx
+            mlcs_vec[:,4] = m1b_vec[:,3]  #m1b Rx is mlcs Ry
+            mlcs_vec[:,5] = -m1b_vec[:,5] #m1b Rz is mlcs -Rz
     elif m1b_vec.ndim == 3 and m1b_vec.shape[2] == 3: # e.g. (100,170,3)
         mlcs_vec[:,:,0] = m1b_vec[:,:,1] #m1b y is mlcs x
         mlcs_vec[:,:,1] = m1b_vec[:,:,0] #m1b x is mlcs y
