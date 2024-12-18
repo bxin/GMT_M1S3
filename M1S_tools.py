@@ -40,6 +40,8 @@ r_S1_center_in_S7 = 8.710 #distance to S1 optical axis in m
 diameter_of_CA = 8.365 #CA diamter in m
 radius_of_curvature = 36.000 #radius of curvature in m
 conic = -0.998286
+theta_M1S_deg = 13.601685
+theta_M1B_deg = 13.522
 radius_of_CA = diameter_of_CA/2.0
 def surfFunc(r2):
     return r2/(radius_of_curvature+np.sqrt(radius_of_curvature**2-(1+conic)*r2))
