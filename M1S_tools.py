@@ -463,7 +463,7 @@ def printDBVar(myt, table_name, duration_in_s=1):
                      "src":{"$eq":f"{table_name}"}})
     for record in records:
         print(record['value'])
-        
+
 def getDBData(myt, table_name, duration_in_s=60, samples=60):
     '''
     return a numpy array containing the forces in the duration following myt timestamp (to the minute)
@@ -487,22 +487,32 @@ def getDBData(myt, table_name, duration_in_s=60, samples=60):
     force_data = []
     ts_data = []
     desired_interval = duration_in_s/samples
-    record_clock = 0
+    n_interval = 0
     for record in records:
-        record_clock += 0.1
-        if record_clock > desired_interval-0.01:
+        ts_s = record["ts"]/ 1000000000.0
+        if len(ts_data) == 0:
+            ts_data.append(ts_s)
             force_data.append(record['value'])
-            ts_data.append(record["ts"]/ 1000000000.0)
-            #print(record_clock)
-            record_clock = 0
-        #print()
+        else:
+            if ts_s - ts_data[0]> n_interval*desired_interval-0.01:
+                ts_data.append(ts_s)
+                force_data.append(record['value'])
+                n_interval +=1
     print(np.array(force_data).shape)
     if 'dewpoint' in table_name:
         #no sign change
         aa = np.array(force_data) - 273.15
+    elif 'mirror_temperature' in table_name:
+        aa = np.array(force_data) - 273.15
+    elif 'ambient_temperature' in table_name:
+        aa = np.array(force_data) - 273.15
+    elif 'tc_temperature' in table_name:
+        aa = np.array(force_data) - 273.15
+        aa = aa.reshape((-1, aa.shape[1]* aa.shape[2])) #n_time x 192
     else:
         #we convert all data to be consistent with RFCML surface maps (so that our heads won't be spinning!)
         aa = m1b_to_mlcs(np.array(force_data))
+    print(aa.shape)
     return aa, np.array(ts_data)
 
 def ZernikeMaskedFit(S, x, y, numTerms, mask, e):
@@ -618,4 +628,427 @@ def ZernikeEval(Z, x, y):
     
     return S
 
+#https://github.com/CanisUrsa/ocs_m1_dcs/blob/master/src/etc/conf/m1_thermal_pkg/common/m1_s3_tc_label_conf.coffee
+tc_labels = [
+    [ # TC Scanner 1
+        "TC1REF",    # Channel 0 - REF
+        "MTCIN002B", # Channel 1 - MTCIN002B - Mirror
+        "MTCIN002M", # Channel 2 - MTCIN002M - Mirror
+        "MTCIN002F", # Channel 3 - MTCIN002F - Mirror
+        "MTC013B",   # Channel 4 - MTC013B - Mirror
+        "MTC013F",   # Channel 5 - MTC013F - Mirror
+        "MTC014B",   # Channel 6 - MTC014B - Mirror
+        "MTC014F",   # Channel 7 - MTC014F - Mirror
+        "MTC015B",   # Channel 8 - MTC015B - Mirror
+        "MTC015F",   # Channel 9 - MTC015F - Mirror
+        "MTCOW005B", # Channel 10 - MTCOW005B - Mirror
+        "MTCOW005M", # Channel 11 - MTCOW005M - Mirror
+        "MTCOW005F", # Channel 12 - MTCOW005F - Mirror
+        "MTC016B",   # Channel 13 - MTC016B - Mirror
+        "MTC016F",   # Channel 14 - MTC016F - Mirror
+        "MTCOW006B", # Channel 15 - MTCOW006B - Mirror
+        "MTCOW006M", # Channel 16 - MTCOW006M - Mirror
+        "MTCOW006F", # Channel 17 - MTCOW006F - Mirror
+        "CTCUP001",  # Channel 18 - CTCUP001 - Upper Plenum
+        "CTCUP002",  # Channel 19 - CTCUP002 - Upper Plenum
+        "CTCUP003",  # Channel 20 - CTCUP003 - Upper Plenum
+        "CTCLP001",  # Channel 21 - CTCLP001 - Lower Plenum
+        "CTCCW001T", # Channel 22 - CTCCW001T - Weldment
+        "",          # Channel 23 - NC
+        "",          # Channel 24 - NC
+        "",          # Channel 25 - NC
+        "",          # Channel 26 - NC
+        "",          # Channel 27 - NC
+        "",          # Channel 28 - NC
+        "",          # Channel 29 - NC
+        "",          # Channel 30 - NC
+        "CTCIB001",  # Channel 31 - CTCIB001 - ITJB
+    ],
+    [ # TC Scanner 2
+        "TC2REF",    # Channel 0 - REF
+        "MTC017B",   # Channel 1 - MTC017B - Mirror
+        "MTC017F",   # Channel 2 - MTC017F - Mirror
+        "MTC018B",   # Channel 3 - MTC018B - Mirror
+        "MTC018F",   # Channel 4 - MTC018F - Mirror
+        "MTCIN003B", # Channel 5 - MTCIN003B - Mirror
+        "MTCIN003M", # Channel 6 - MTCIN003M - Mirror
+        "MTCIN003F", # Channel 7 - MTCIN003F - Mirror
+        "MTC019B",   # Channel 8 - MTC019B - Mirror
+        "MTC019F",   # Channel 9 - MTC019F - Mirror
+        "MTC020B",   # Channel 10 - MTC020B - Mirror
+        "MTC020F",   # Channel 11 - MTC020F - Mirror
+        "MTC021B",   # Channel 12 - MTC021B - Mirror
+        "MTC021F",   # Channel 13 - MTC021F - Mirror
+        "MTCOW007B", # Channel 14 - MTCOW007B - Mirror
+        "MTCOW007M", # Channel 15 - MTCOW007M - Mirror
+        "MTCOW007F", # Channel 16 - MTCOW007F - Mirror
+        "MTC022B",   # Channel 17 - MTC022B - Mirror
+        "MTC022F",   # Channel 18 - MTC022F - Mirror
+        "CTCUP004",  # Channel 19 - CTCUP004 - Upper Plenum
+        "CTCUP005",  # Channel 20 - CTCUP005 - Upper Plenum
+        "CTCUP006",  # Channel 21 - CTCUP006 - Upper Plenum
+        "CTCAA001",  # Channel 22 - CTCAA001 - Ambient
+        "CTCCW001W", # Channel 23 - CTCCW001W - Weldment
+        "CTCCW001F", # Channel 24 - CTCCW001F - Weldment
+        "",          # Channel 25 - NC
+        "",          # Channel 26 - NC
+        "",          # Channel 27 - NC
+        "",          # Channel 28 - NC
+        "",          # Channel 29 - NC
+        "",          # Channel 30 - NC
+        "CTCIB002",  # Channel 31 - CTCIB002 - ITJB
+    ],
+    [ # TC Scanner 3
+        "TC3REF",    # Channel 0 - REF
+        "MTCOW008B", # Channel 1 - MTCOW008B - Mirror
+        "MTCOW008M", # Channel 2 - MTCOW008M - Mirror
+        "MTCOW008F", # Channel 3 - MTCOW008F - Mirror
+        "MTC023B",   # Channel 4 - MTC023B - Mirror
+        "MTC023F",   # Channel 5 - MTC023F - Mirror
+        "MTC024B",   # Channel 6 - MTC024B - Mirror
+        "MTC024F",   # Channel 7 - MTC024F - Mirror
+        "MTC025B",   # Channel 8 - MTC025B - Mirror
+        "MTC025F",   # Channel 9 - MTC025F - Mirror
+        "MTC026B",   # Channel 10 - MTC026B - Mirror
+        "MTC026F",   # Channel 11 - MTC026F - Mirror
+        "MTCOW009B", # Channel 12 - MTCOW009B - Mirror
+        "MTCOW009M", # Channel 13 - MTCOW009M - Mirror
+        "MTCOW009F", # Channel 14 - MTCOW009F - Mirror
+        "MTC027B",   # Channel 15 - MTC027B - Mirror
+        "MTC027F",   # Channel 16 - MTC027F - Mirror
+        "MTC028B",   # Channel 17 - MTC028B - Mirror
+        "MTC028F",   # Channel 18 - MTC028F - Mirror
+        "MTCOW010B", # Channel 19 - MTCOW010B - Mirror
+        "MTCOW010M", # Channel 20 - MTCOW010M - Mirror
+        "MTCOW010F", # Channel 21 - MTCOW010F - Mirror
+        "CTCUP007",  # Channel 22 - CTCUP007 - Upper Plenum
+        "CTCUP008",  # Channel 23 - CTCUP008 - Upper Plenum
+        "CTCLP002",  # Channel 24 - CTCLP002 - Lower Plenum
+        "CTCCW002T", # Channel 25 - CTCCW002T - Weldment
+        "",          # Channel 26 - NC
+        "",          # Channel 27 - NC
+        "",          # Channel 28 - NC
+        "",          # Channel 29 - NC
+        "",          # Channel 30 - NC
+        "CTCIB003",  # Channel 31 - CTCIB003 - ITJB
+    ],
+    [ # TC Scanner 4
+        "TC4REF",    # Channel 0 - REF
+        "MTCIN004B", # Channel 1 - MTCIN004B - Mirror
+        "MTCIN004M", # Channel 2 - MTCIN004M - Mirror
+        "MTCIN004F", # Channel 3 - MTCIN004F - Mirror
+        "MTC029B",   # Channel 4 - MTC029B - Mirror
+        "MTC029F",   # Channel 5 - MTC029F - Mirror
+        "MTC030B",   # Channel 6 - MTC030B - Mirror
+        "MTC030F",   # Channel 7 - MTC030F - Mirror
+        "MTC031B",   # Channel 8 - MTC031B - Mirror
+        "MTC031F",   # Channel 9 - MTC031F - Mirror
+        "MTCOW011B", # Channel 10 - MTCOW011B - Mirror
+        "MTCOW011M", # Channel 11 - MTCOW011M - Mirror
+        "MTCOW011F", # Channel 12 - MTCOW011F - Mirror
+        "MTC032B",   # Channel 13 - MTC032B - Mirror
+        "MTC032F",   # Channel 14 - MTC032F - Mirror
+        "MTCOW012B", # Channel 15 - MTCOW012B - Mirror
+        "MTCOW012M", # Channel 16 - MTCOW012M - Mirror
+        "MTCOW012F", # Channel 17 - MTCOW012F - Mirror
+        "CTCUP009",  # Channel 18 - CTCUP009 - Upper Plenum
+        "CTCUP010",  # Channel 19 - CTCUP010 - Upper Plenum
+        "CTCAA002",  # Channel 20 - CTCAA002 - Ambient
+        "CTCCW002W", # Channel 21 - CTCCW002W - Weldment
+        "CTCCW002F", # Channel 22 - CTCCW002F - Weldment
+        "",          # Channel 23 - NC
+        "",          # Channel 24 - NC
+        "",          # Channel 25 - NC
+        "",          # Channel 26 - NC
+        "",          # Channel 27 - NC
+        "",          # Channel 28 - NC
+        "",          # Channel 29 - NC
+        "",          # Channel 30 - NC
+        "CTCIB004",  # Channel 31 - CTCIB004 - ITJB
+    ],
+    [ # TC Scanner 5
+        "TC5REF",    # Channel 0 - REF
+        "MTC001B",   # Channel 1 - MTC001B - Mirror
+        "MTC001F",   # Channel 2 - MTC001F - Mirror
+        "MTC002B",   # Channel 3 - MTC002B - Mirror
+        "MTC002F",   # Channel 4 - MTC002F - Mirror
+        "MTCIN001B", # Channel 5 - MTCIN001B - Mirror
+        "MTCIN001M", # Channel 6 - MTCIN001M - Mirror
+        "MTCIN001F", # Channel 7 - MTCIN001F - Mirror
+        "MTC003B",   # Channel 8 - MTC003B - Mirror
+        "MTC003F",   # Channel 9 - MTC003F - Mirror
+        "MTC004B",   # Channel 10 - MTC004B - Mirror
+        "MTC004F",   # Channel 11 - MTC004F - Mirror
+        "MTC005B",   # Channel 12 - MTC005B - Mirror
+        "MTC005F",   # Channel 13 - MTC005F - Mirror
+        "MTCOW001B", # Channel 14 - MTCOW001B - Mirror
+        "MTCOW001M", # Channel 15 - MTCOW001M - Mirror
+        "MTCOW001F", # Channel 16 - MTCOW001F - Mirror
+        "MTC006B",   # Channel 17 - MTC006B - Mirror
+        "MTC006F",   # Channel 18 - MTC006F - Mirror
+        "CTCUP013",  # Channel 19 - CTCUP013 - Upper Plenum
+        "CTCUP014",  # Channel 20 - CTCUP014 - Upper Plenum
+        "CTCLP003",  # Channel 21 - CTCLP003 - Lower Plenum
+        "CTCCW003T", # Channel 22 - CTCCW003T - Weldment
+        "",          # Channel 23 - NC
+        "",          # Channel 24 - NC
+        "",          # Channel 25 - NC
+        "",          # Channel 26 - NC
+        "",          # Channel 27 - NC
+        "",          # Channel 28 - NC
+        "",          # Channel 29 - NC
+        "",          # Channel 30 - NC
+        "CTCIB005",  # Channel 31 - CTCIB005 - ITJB
+    ],
+    [ # TC Scanner 6
+        "TC6REF",    # Channel 0 - REF
+        "MTCOW002B", # Channel 1 - MTCOW002B - Mirror
+        "MTCOW002M", # Channel 2 - MTCOW002M - Mirror
+        "MTCOW002F", # Channel 3 - MTCOW002F - Mirror
+        "MTC007B",   # Channel 4 - MTC007B - Mirror
+        "MTC007F",   # Channel 5 - MTC007F - Mirror
+        "MTC008B",   # Channel 6 - MTC008B - Mirror
+        "MTC008F",   # Channel 7 - MTC008F - Mirror
+        "MTC009B",   # Channel 8 - MTC009B - Mirror
+        "MTC009F",   # Channel 9 - MTC009F - Mirror
+        "MTC010B",   # Channel 10 - MTC010B - Mirror
+        "MTC010F",   # Channel 11 - MTC010F - Mirror
+        "MTCOW003B", # Channel 12 - MTCOW003B - Mirror
+        "MTCOW003M", # Channel 13 - MTCOW003M - Mirror
+        "MTCOW003F", # Channel 14 - MTCOW003F - Mirror
+        "MTC011B",   # Channel 15 - MTC011B - Mirror
+        "MTC011F",   # Channel 16 - MTC011F - Mirror
+        "MTC012B",   # Channel 17 - MTC012B - Mirror
+        "MTC012F",   # Channel 18 - MTC012F - Mirror
+        "MTCOW004B", # Channel 19 - MTCOW004B - Mirror
+        "MTCOW004M", # Channel 20 - MTCOW004M - Mirror
+        "MTCOW004F", # Channel 21 - MTCOW004F - Mirror
+        "CTCUP011",  # Channel 22 - CTCUP011 - Upper Plenum
+        "CTCUP012",  # Channel 23 - CTCUP012 - Upper Plenum
+        "CTCAA003",  # Channel 24 - CTCAA003 - Ambient
+        "CTCCW003W", # Channel 25 - CTCCW003W - Weldment
+        "CTCCW003F", # Channel 26 - CTCCW003F - Weldment
+        "",          # Channel 27 - NC
+        "",          # Channel 28 - NC
+        "",          # Channel 29 - NC
+        "",          # Channel 30 - NC
+        "CTCIB006",  # Channel 31 - CTCIB006 - ITJB
+    ]
+]
+tc_labels = [item for sublist in tc_labels for item in sublist]
+
+#https://github.com/CanisUrsa/ocs_m1_dcs/blob/master/src/etc/conf/m1_thermal_pkg/common/m1_s3_tc_position_conf.coffee
+tc_locs = [
+    [ # TC Scanner 1
+        [ 0, 0, 0 ],                                   # Channel 0 - CTCIB001 - ITJB
+        [ -0.332903464 ,-0.474509544 ,-0.03175 ],      # Channel 1 - MTCIN002B - Mirror
+        [ -0.332903464 ,-0.474509544 ,-0.236886226 ],  # Channel 2 - MTCIN002M - Mirror
+        [ -0.332892 ,-0.384404 ,-0.442022451 ],        # Channel 3 - MTCIN002F - Mirror
+        [ -1.742551113 ,-1.198263494 ,-0.03175 ],      # Channel 4 - MTC013B - Mirror
+        [ -1.664538 ,-1.153211 ,-0.492287168 ],        # Channel 5 - MTC013F - Mirror
+        [ -2.908297565 ,-2.482149258 ,-0.03175 ],      # Channel 6 - MTC014B - Mirror
+        [ -2.97942 ,-2.537714 ,-0.640703237 ],         # Channel 7 - MTC014F - Mirror
+        [ -1.742552378 ,-2.543673903 ,-0.03175 ],      # Channel 8 - MTC015B - Mirror
+        [ -1.664462 ,-2.498623 ,-0.554477486 ],        # Channel 9 - MTC015F - Mirror
+        [ -2.086749319 ,-3.6143556 ,-0.03175 ],        # Channel 10 - MTCOW005B - Mirror
+        [ -2.086749319 ,-3.6143556 ,-0.343210699 ],    # Channel 11 - MTCOW005M - Mirror
+        [ -2.041652 ,-3.536086 ,-0.654677144 ],        # Channel 12 - MTCOW005F - Mirror
+        [ -0.66580512 ,-3.549738657 ,-0.03175 ],       # Channel 13 - MTC016B - Mirror
+        [ -0.665734 ,-3.459632 ,-0.596353309 ],        # Channel 14 - MTC016F - Mirror
+        [ -0.095 ,-4.172416979 ,-0.03175 ],            # Channel 15 - MTCOW006B - Mirror
+        [ -0.095002175 ,-4.172416979 ,-0.343210699 ],  # Channel 16 - MTCOW006M - Mirror
+        [ -0.092939 ,-4.082059 ,-0.651491443 ],        # Channel 17 - MTCOW006F - Mirror
+        [ 0, 0, 0 ],                                   # Channel 18 - CTCUP001 - Upper Plenum
+        [ 0, 0, 0 ],                                   # Channel 19 - CTCUP002 - Upper Plenum
+        [ 0, 0, 0 ],                                   # Channel 20 - CTCUP003 - Upper Plenum
+        [ 0, 0, 0 ],                                   # Channel 21 - CTCLP001 - Lower Plenum
+        [ 0, 0, 0 ],                                   # Channel 22 - CTCCW001T - Weldment
+        [ 0, 0, 0 ],                                   # Channel 23 - NC
+        [ 0, 0, 0 ],                                   # Channel 24 - NC
+        [ 0, 0, 0 ],                                   # Channel 25 - NC
+        [ 0, 0, 0 ],                                   # Channel 26 - NC
+        [ 0, 0, 0 ],                                   # Channel 27 - NC
+        [ 0, 0, 0 ],                                   # Channel 28 - NC
+        [ 0, 0, 0 ],                                   # Channel 29 - NC
+        [ 0, 0, 0 ],                                   # Channel 30 - NC
+        [ 0, 0, 0 ],                                   # Channel 31 - NC
+    ],
+    [ # TC Scanner 2
+        [ 0, 0, 0 ],                                   # Channel 0 - CTCIB002 - ITJB
+        [ 0 ,-1.435518857 ,-0.03175 ],                 # Channel 1 - MTC017B - Mirror
+        [ 0 ,-1.345413 ,-0.460566185 ],                # Channel 2 - MTC017F - Mirror
+        [ 0 ,-2.588729657 ,-0.03175 ],                 # Channel 3 - MTC018B - Mirror
+        [ 0 ,-2.498623 ,-0.516516625 ],                # Channel 4 - MTC018F - Mirror
+        [ 0.332903464 ,-0.474509544 ,-0.03175 ],       # Channel 5 - MTCIN003B - Mirror
+        [ 0.332903464 ,-0.474509544 ,-0.236886226 ],   # Channel 6 - MTCIN003M - Mirror
+        [ 0.332892 ,-0.384404 ,-0.442022451 ],         # Channel 7 - MTCIN003F - Mirror
+        [ 0.66580512 ,-3.549738657 ,-0.03175 ],        # Channel 8 - MTC019B - Mirror
+        [ 0.66581 ,-3.459632 ,-0.596354704 ],          # Channel 9 - MTC019F - Mirror
+        [ 1.742551113 ,-1.198263494 ,-0.03175 ],       # Channel 10 - MTC020B - Mirror
+        [ 1.664513 ,-1.153211 ,-0.492286037 ],         # Channel 11 - MTC020F - Mirror
+        [ 1.742552378 ,-2.543673903 ,-0.03175 ],       # Channel 12 - MTC021B - Mirror
+        [ 1.664513 ,-2.498623 ,-0.554479813 ],         # Channel 13 - MTC021F - Mirror
+        [ 2.086749319 ,-3.6143556 ,-0.03175 ],         # Channel 14 - MTCOW007B - Mirror
+        [ 2.086749319 ,-3.6143556 ,-0.343210699 ],     # Channel 15 - MTCOW007M - Mirror
+        [ 2.04155 ,-3.536086 ,-0.654671399 ],          # Channel 16 - MTCOW007F - Mirror
+        [ 2.908297565 ,-2.482149258 ,-0.03175 ],       # Channel 17 - MTC022B - Mirror
+        [ 2.979344 ,-2.537714 ,-0.640697029 ],         # Channel 18 - MTC022F - Mirror
+        [ 0, 0, 0 ],                                   # Channel 19 - CTCUP004 - Upper Plenum
+        [ 0, 0, 0 ],                                   # Channel 20 - CTCUP005 - Upper Plenum
+        [ 0, 0, 0 ],                                   # Channel 21 - CTCUP006 - Upper Plenum
+        [ 0, 0, 0 ],                                   # Channel 22 - CTCAA001 - Ambient
+        [ 0, 0, 0 ],                                   # Channel 23 - CTCCW001W - Weldment
+        [ 0, 0, 0 ],                                   # Channel 24 - CTCCW001F - Weldment
+        [ 0, 0, 0 ],                                   # Channel 25 - NC
+        [ 0, 0, 0 ],                                   # Channel 26 - NC
+        [ 0, 0, 0 ],                                   # Channel 27 - NC
+        [ 0, 0, 0 ],                                   # Channel 28 - NC
+        [ 0, 0, 0 ],                                   # Channel 29 - NC
+        [ 0, 0, 0 ],                                   # Channel 30 - NC
+        [ 0, 0, 0 ],                                   # Channel 31 - NC
+    ],
+    [ # TC Scanner 3
+        [ 0, 0, 0 ],                                   # Channel 0 - CTCIB003 - ITJB
+        [ 3.660920396 ,-2.003934071 ,-0.03175 ],       # Channel 1 - MTCOW008B - Mirror
+        [ 3.660920396 ,-2.003934071 ,-0.343210699 ],   # Channel 2 - MTCOW008M - Mirror
+        [ 3.581629 ,-1.96055 ,-0.661236652 ],          # Channel 3 - MTCOW008F - Mirror
+        [ 1.076730286 ,0.045052481 ,-0.03175 ],        # Channel 4 - MTC023B - Mirror
+        [ 0.998728 ,-1.22707e-26 ,-0.452627296 ],      # Channel 5 - MTC023F - Mirror
+        [ 3.074163522 ,-1.198264746 ,-0.03175 ],       # Channel 6 - MTC024B - Mirror
+        [ 2.996184 ,-1.153211 ,-0.576623673 ],         # Channel 7 - MTC024F - Mirror
+        [ 2.408356414 ,0.045055371 ,-0.03175 ],        # Channel 8 - MTC025B - Mirror
+        [ 2.330323 ,-0.000025 ,-0.512435684 ],         # Channel 9 - MTC025F - Mirror
+        [ 3.741620174 ,-0.783712952 ,-0.03175 ],       # Channel 10 - MTC026B - Mirror
+        [ 3.660394 ,-0.760146 ,-0.627142035 ],         # Channel 11 - MTC026F - Mirror
+        [ 4.173498638 ,0.000000242705 ,-0.03175 ],     # Channel 12 - MTCOW009B - Mirror
+        [ 4.173498638 ,0.000000242705 ,-0.343210699 ], # Channel 13 - MTCOW009M - Mirror
+        [ 4.083126 ,-2.47123e-23 ,-0.664127315 ],      # Channel 14 - MTCOW009F - Mirror
+        [ 3.074163522 ,1.198265232 ,-0.03175 ],        # Channel 15 - MTC027B - Mirror
+        [ 2.996133 ,1.153211 ,-0.57787628 ],           # Channel 16 - MTC027F - Mirror
+        [ 3.741620174 ,0.783713437 ,-0.03175 ],        # Channel 17 - MTC028B - Mirror
+        [ 3.660394 ,0.760171 ,-0.627504767 ],          # Channel 18 - MTC028F - Mirror
+        [ 3.660920396 ,2.003934556 ,-0.03175 ],        # Channel 19 - MTCOW010B - Mirror
+        [ 3.660920396 ,2.003934556 ,-0.343210699 ],    # Channel 20 - MTCOW010M - Mirror
+        [ 3.581629 ,1.96055 ,-0.661355998 ],           # Channel 21 - MTCOW010F - Mirror
+        [ 0, 0, 0 ],                                   # Channel 22 - CTCUP007 - Upper Plenum
+        [ 0, 0, 0 ],                                   # Channel 23 - CTCUP008 - Upper Plenum
+        [ 0, 0, 0 ],                                   # Channel 24 - CTCLP002 - Lower Plenum
+        [ 0, 0, 0 ],                                   # Channel 25 - CTCCW002T - Weldment
+        [ 0, 0, 0 ],                                   # Channel 26 - NC
+        [ 0, 0, 0 ],                                   # Channel 27 - NC
+        [ 0, 0, 0 ],                                   # Channel 28 - NC
+        [ 0, 0, 0 ],                                   # Channel 29 - NC
+        [ 0, 0, 0 ],                                   # Channel 30 - NC
+        [ 0, 0, 0 ],                                   # Channel 31 - NC
+    ],
+    [ # TC Scanner 4
+        [ 0, 0, 0 ],                                   # Channel 0 - CTCIB004 - ITJB
+        [ 0.332903464 ,0.47451003 ,-0.03175 ],         # Channel 1 - MTCIN004B - Mirror
+        [ 0.332903464 ,0.47451003 ,-0.236886226 ],     # Channel 2 - MTCIN004M - Mirror
+        [ 0.332994 ,0.384404 ,-0.443076928 ],          # Channel 3 - MTCIN004F - Mirror
+        [ 1.742551113 ,1.19826398 ,-0.03175 ],         # Channel 4 - MTC029B - Mirror
+        [ 1.664462 ,1.153211 ,-0.494721549 ],          # Channel 5 - MTC029F - Mirror
+        [ 2.908297565 ,2.482149743 ,-0.03175 ],        # Channel 6 - MTC030B - Mirror
+        [ 2.97942 ,2.537714 ,-0.641485997 ],           # Channel 7 - MTC030F - Mirror
+        [ 1.742552378 ,2.543674388 ,-0.03175 ],        # Channel 8 - MTC031B - Mirror
+        [ 1.664462 ,2.498623 ,-0.55784599 ],           # Channel 9 - MTC031F - Mirror
+        [ 2.086749319 ,3.614356086 ,-0.03175 ],        # Channel 10 - MTCOW011B - Mirror
+        [ 2.086749319 ,3.614356086 ,-0.343210699 ],    # Channel 11 - MTCOW011M - Mirror
+        [ 2.041576 ,3.536086 ,-0.655163794 ],          # Channel 12 - MTCOW011F - Mirror
+        [ 0.66580512 ,3.549739143 ,-0.03175 ],         # Channel 13 - MTC032B - Mirror
+        [ 0.66581 ,3.459632 ,-0.599254526 ],           # Channel 14 - MTC032F - Mirror
+        [ 0.095002175 ,4.172417464 ,-0.03175 ],        # Channel 15 - MTCOW012B - Mirror
+        [ 0.095002175 ,4.172417464 ,-0.343210699 ],    # Channel 16 - MTCOW012M - Mirror
+        [ 0.092936 ,4.082059 ,-0.652211866 ],          # Channel 17 - MTCOW012F - Mirror
+        [ 0, 0, 0 ],                                   # Channel 18 - CTCUP009 - Upper Plenum
+        [ 0, 0, 0 ],                                   # Channel 19 - CTCUP010 - Upper Plenum
+        [ 0, 0, 0 ],                                   # Channel 20 - CTCAA002 - Ambient
+        [ 0, 0, 0 ],                                   # Channel 21 - CTCCW002W - Weldment
+        [ 0, 0, 0 ],                                   # Channel 22 - CTCCW002F - Weldment
+        [ 0, 0, 0 ],                                   # Channel 23 - NC
+        [ 0, 0, 0 ],                                   # Channel 24 - NC
+        [ 0, 0, 0 ],                                   # Channel 25 - NC
+        [ 0, 0, 0 ],                                   # Channel 26 - NC
+        [ 0, 0, 0 ],                                   # Channel 27 - NC
+        [ 0, 0, 0 ],                                   # Channel 28 - NC
+        [ 0, 0, 0 ],                                   # Channel 29 - NC
+        [ 0, 0, 0 ],                                   # Channel 30 - NC
+        [ 0, 0, 0 ],                                   # Channel 31 - NC
+    ],
+    [ # TC Scanner 5
+        [ 0, 0, 0 ],                                   # Channel 0 - CTCIB005 - ITJB
+        [ 0 ,1.435519343 ,-0.03175 ],                  # Channel 1 - MTC001B - Mirror
+        [ 0 ,1.345413 ,-0.463925044 ],                 # Channel 2 - MTC001F - Mirror
+        [ 0 ,2.588730143 ,-0.03175 ],                  # Channel 3 - MTC002B - Mirror
+        [ 0 ,2.498623 ,-0.52102807 ],                  # Channel 4 - MTC002F - Mirror
+        [ -0.332903464 ,0.47451003 ,-0.03175 ],        # Channel 5 - MTCIN001B - Mirror
+        [ -0.332903464 ,0.47451003 ,-0.236886226 ],    # Channel 6 - MTCIN001M - Mirror
+        [ -0.332892 ,0.384404 ,-0.443076013 ],         # Channel 7 - MTCIN001F - Mirror
+        [ -0.66580512 ,3.549739143 ,-0.03175 ],        # Channel 8 - MTC003B - Mirror
+        [ -0.66581 ,3.459632 ,-0.599254526 ],          # Channel 9 - MTC003F - Mirror
+        [ -1.742551113 ,1.19826398 ,-0.03175 ],        # Channel 10 - MTC004B - Mirror
+        [ -1.664513 ,1.153211 ,-0.494723824 ],         # Channel 11 - MTC004F - Mirror
+        [ -1.742552378 ,2.543674388 ,-0.03175 ],       # Channel 12 - MTC005B - Mirror
+        [ -1.664513 ,2.498623 ,-0.557848246 ],         # Channel 13 - MTC005F - Mirror
+        [ -2.086749319 ,3.614356086 ,-0.03175 ],       # Channel 14 - MTCOW001B - Mirror
+        [ -2.086749319 ,3.614356086 ,-0.343210699 ],   # Channel 15 - MTCOW001M - Mirror
+        [ -2.04155 ,3.536086 ,-0.655162392 ],          # Channel 16 - MTCOW001F - Mirror
+        [ -2.908297565 ,2.482149743 ,-0.03175 ],       # Channel 17 - MTC006B - Mirror
+        [ -2.979344 ,2.537714 ,-0.641479979 ],         # Channel 18 - MTC006F - Mirror
+        [ 0, 0, 0 ],                                   # Channel 19 - CTCUP013 - Upper Plenum
+        [ 0, 0, 0 ],                                   # Channel 20 - CTCUP014 - Upper Plenum
+        [ 0, 0, 0 ],                                   # Channel 21 - CTCLP003 - Lower Plenum
+        [ 0, 0, 0 ],                                   # Channel 22 - CTCCW003T - Weldment
+        [ 0, 0, 0 ],                                   # Channel 23 - NC
+        [ 0, 0, 0 ],                                   # Channel 24 - NC
+        [ 0, 0, 0 ],                                   # Channel 25 - NC
+        [ 0, 0, 0 ],                                   # Channel 26 - NC
+        [ 0, 0, 0 ],                                   # Channel 27 - NC
+        [ 0, 0, 0 ],                                   # Channel 28 - NC
+        [ 0, 0, 0 ],                                   # Channel 29 - NC
+        [ 0, 0, 0 ],                                   # Channel 30 - NC
+        [ 0, 0, 0 ],                                   # Channel 31 - NC
+    ],
+    [ # TC Scanner 6
+        [ 0, 0, 0 ],                                   # Channel 0 - CTCIB006 - ITJB
+        [ -3.660920396 ,2.003934556 ,-0.03175 ],       # Channel 1 - MTCOW002B - Mirror
+        [ -3.660920396 ,2.003934556 ,-0.343210699 ],   # Channel 2 - MTCOW002M - Mirror
+        [ -3.581629 ,1.96055 ,-0.661355998 ],          # Channel 3 - MTCOW002F - Mirror
+        [ -1.076730286 ,-0.045051996 ,-0.03175 ],      # Channel 4 - MTC007B - Mirror
+        [ -0.998728 ,0 ,-0.452627296 ],                # Channel 5 - MTC007F - Mirror
+        [ -3.074163522 ,1.198265232 ,-0.03175 ],       # Channel 6 - MTC008B - Mirror
+        [ -2.996184 ,1.153211 ,-0.577880375 ],         # Channel 7 - MTC008F - Mirror
+        [ -2.408356414 ,-0.045051129 ,-0.03175 ],      # Channel 8 - MTC009B - Mirror
+        [ -2.330323 ,0 ,-0.512435731 ],                # Channel 9 - MTC009F - Mirror
+        [ -3.741620173 ,0.783713437 ,-0.03175 ],       # Channel 10 - MTC010B - Mirror
+        [ -3.660394 ,0.760146 ,-0.627504278 ],         # Channel 11 - MTC010F - Mirror
+        [ -4.173498638 ,0 ,-0.03175 ],                 # Channel 12 - MTCOW003B - Mirror
+        [ -4.173498638 ,0 ,-0.343210699 ],             # Channel 13 - MTCOW003M - Mirror
+        [ -4.083126 ,0 ,-0.664127315 ],                # Channel 14 - MTCOW003F - Mirror
+        [ -3.074163522 ,-1.198264746 ,-0.03175 ],      # Channel 15 - MTC011B - Mirror
+        [ -2.996133 ,-1.153211 ,-0.57661952 ],         # Channel 16 - MTC011F - Mirror
+        [ -3.741620173 ,-0.783712952 ,-0.03175 ],      # Channel 17 - MTC012B - Mirror
+        [ -3.660394 ,-0.760171 ,-0.627142516 ],        # Channel 18 - MTC012F - Mirror
+        [ -3.660920396 ,-2.003934071 ,-0.03175 ],      # Channel 19 - MTCOW004B - Mirror
+        [ -3.660920396 ,-2.003934071 ,-0.343210699 ],  # Channel 20 - MTCOW004M - Mirror
+        [ -3.581629 ,-1.96055 ,-0.661236652 ],         # Channel 21 - MTCOW004F - Mirror
+        [ 0, 0, 0 ],                                   # Channel 22 - CTCUP011 - Upper Plenum
+        [ 0, 0, 0 ],                                   # Channel 23 - CTCUP012 - Upper Plenum
+        [ 0, 0, 0 ],                                   # Channel 24 - CTCAA003 - Ambient
+        [ 0, 0, 0 ],                                   # Channel 25 - CTCCW003W - Weldment
+        [ 0, 0, 0 ],                                   # Channel 26 - CTCCW003F - Weldment
+        [ 0, 0, 0 ],                                   # Channel 27 - NC
+        [ 0, 0, 0 ],                                   # Channel 28 - NC
+        [ 0, 0, 0 ],                                   # Channel 29 - NC
+        [ 0, 0, 0 ],                                   # Channel 30 - NC
+        [ 0, 0, 0 ],                                   # Channel 31 - NC
+    ]
+]
+tc_locs = np.array([item for sublist in tc_locs for item in sublist])
+idx_mirror_f = [(label.startswith("MTC") and label.endswith("F")) for label in tc_labels]
+print('number of Mirror Front surface TCs = ', sum(idx_mirror_f))
+idx_mirror_b = [(label.startswith("MTC") and label.endswith("B")) for label in tc_labels]
+print('number of Mirror Back surface TCs = ', sum(idx_mirror_b))
+idx_mirror_m = [(label.startswith("MTC") and label.endswith("M")) for label in tc_labels]
+print('number of Mirror Middle TCs = ', sum(idx_mirror_m))
 
