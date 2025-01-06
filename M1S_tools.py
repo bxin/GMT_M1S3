@@ -1052,3 +1052,82 @@ print('number of Mirror Back surface TCs = ', sum(idx_mirror_b))
 idx_mirror_m = [(label.startswith("MTC") and label.endswith("M")) for label in tc_labels]
 print('number of Mirror Middle TCs = ', sum(idx_mirror_m))
 
+
+from scipy.special import factorial
+
+def nm2noll(n, m):
+    """Convert indices `(n, m)` to the Noll's index `k`.
+
+    Note that Noll's index `k` starts from one and Python indexing is
+    zero-based.
+
+    """
+    k = n * (n + 1) // 2 + abs(m)
+    if (m <= 0 and n % 4 in (0, 1)) or (m >= 0 and n % 4 in (2, 3)):
+        k += 1
+    return k
+
+nmax = 5000
+narray = np.zeros(nmax)
+marray = np.zeros(nmax)
+for ni in range(nmax):
+    for mi in range(-ni, ni + 1, 2):
+        idx = nm2noll(ni,mi)-1
+        #print(ni, mi, idx)
+        if idx<nmax:
+            narray[idx] = ni
+            marray[idx] = mi
+
+def noll_to_nm(N):
+    """
+    Convert Noll index to radial degree n and azimuthal order m.
+    """
+    n = int(narray[N-1])
+    m = int(marray[N-1])
+    return n, m        
+        
+def radial_polynomial(n, m, rho):
+    """
+    Compute the radial Zernike polynomial Rnm(rho) for a given radial degree n
+    and azimuthal order m at the radial distance rho.
+    """
+    R = np.zeros_like(rho)
+    R[np.isnan(rho)] = np.nan
+    for s in range((n - abs(m)) // 2 + 1):
+        c = (-1)**s * factorial(n - s) / (
+            factorial(s) * factorial((n + abs(m)) // 2 - s) * factorial((n - abs(m)) // 2 - s)
+        )
+        R += c * rho**(n - 2 * s)
+    return R
+
+
+def zernike_polynomial(N, x, y):
+    """
+    Compute the Zernike polynomial Znm(x, y) for a given N.
+    N starts from 1.
+    """
+    # Convert Cartesian coordinates (x, y) to polar coordinates (rho, theta)
+    rho = np.sqrt(x**2 + y**2)
+    theta = np.arctan2(y, x)
+    
+    # Set values outside the unit disk to NaN (invalid)
+    rho[rho > 1] = np.nan
+    
+    # Convert Noll index N to n and m
+    n,m = noll_to_nm(N)
+    
+    # Compute the radial part of the polynomial
+    Rnm = radial_polynomial(n, m, rho)
+    
+    # Compute the angular part (cosine or sine)
+    if m >= 0:
+        angular = np.cos(m * theta)
+    else:
+        angular = np.sin(abs(m) * theta)
+    
+    # Combine radial and angular parts to get the Zernike polynomial
+    Z = Rnm * angular
+    
+    # Normalize the polynomial to have RMS = 1
+    normalization = np.sqrt(( (n + 1)) * (1 if m == 0 else 2))  # Standard normalization factor
+    return Z * normalization
