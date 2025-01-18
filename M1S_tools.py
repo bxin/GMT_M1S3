@@ -168,6 +168,11 @@ try:
     #UMat is already normalized to RMS of 1.
     VMat = np.linalg.pinv(SMat@VMat.T/VMat.shape[0])*1e-6
 
+    #make a Afz with 170 columns to avoid breaking previous code
+    Afz170 = np.zeros((Afz.shape[0], nact))
+    Afz170[:,:165] = Afz
+    Afz170[:,165:] = Afz[:,160:]
+
     npuck = np.zeros(nact)
     for i in range(nact):
         if dfSA['LSActType'][i] == 0: #Single Axis on Single Puck
@@ -319,7 +324,7 @@ def saID2swModeID(gmtsaID):
     idx = np.where(saID_sw==gmtsaID)[0]
     return idx[0]+1
 
-def readH5Map(fileset, dataset = '/dataset'):
+def readH5Map(fileset, dataset = '/dataset', verbose = True):
     '''
     The method takes a list of h5 files, get the images, and average them to get a combined image array.
     input:
@@ -359,8 +364,8 @@ def readH5Map(fileset, dataset = '/dataset'):
             filenameShort = filename
         #print('%s: %s is %d x %d, pixelSize = %.4f'%(
         #    filenameShort, dataset, data.shape[0], data.shape[1], pixelSize))
-
-        print('%s: %s '%(filenameShort, timeStamp))
+        if verbose:
+            print('%s: %s '%(filenameShort, timeStamp))
         i+=1
     data /= i
     data = np.rot90(data, 1) # so that we can use imshow(data, origin='lower')
@@ -382,6 +387,19 @@ def getH5date(h5file):
     unix_timestamp = int(datetime_obj.timestamp())
     return unix_timestamp
 
+def writeH5map(map_file, map_data, dataset = '/dataset'):
+    with h5py.File(map_file, 'w') as h5f:
+        # Create the dataset in the default folder '/dataset'
+        #why the transpose and fliplr? 
+        #this is the way to write it in a way that is consistent with the read out (readH5Map)
+        #the way to check it is to plot it, then save it, read it out, and compare
+        dataset = h5f.create_dataset(dataset, data=np.fliplr(map_data.T))
+        
+        # Add attributes
+        dataset.attrs['centerRow'] = centerRow
+        dataset.attrs['centerCol'] = centerCol
+        dataset.attrs['pixelSize'] = pixelSize
+    
 def unix_ts(h5string):
     datetime_obj = datetime.strptime(h5string, "%a %b %d %H:%M:%S %Y")
     unix_timestamp = int(datetime_obj.timestamp())
@@ -398,6 +416,20 @@ def mkXYGrid(s, centerRow, centerCol, pixelSize):
     yVec = (yVec - centerRow) * pixelSize #if we don't put negative sign, we have to flipud the image array
     [x, y] = np.meshgrid(xVec, yVec)
     return x,y
+
+def saID2pixx(mysaID, centerRow, centerCol, pixelSize):
+    '''
+    input: GMT SA ID, e.g., 101
+    output: pixel x location on ML surface map (after transformed into GMT M1B)
+    '''
+    return centerCol+sax[saID==mysaID]/pixelSize
+
+def saID2pixy(mysaID, centerRow, centerCol, pixelSize):
+    '''
+    input: GMT SA ID, e.g., 101
+    output: pixel x location on ML surface map (after transformed into GMT M1B)
+    '''
+    return centerRow+say[saID==mysaID]/pixelSize
 
 def showTMaps(tss):
     #timestamps (tss) example: 
