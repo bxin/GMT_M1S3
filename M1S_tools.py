@@ -3,13 +3,15 @@ import sys
 import h5py
 import numpy as np
 from scipy import interpolate
+from scipy.interpolate import griddata
+
 import scipy.io
 import pandas as pd
 import matplotlib.pyplot as plt
 reversed_cmap = plt.cm.coolwarm.reversed()
 from datetime import datetime
 from datetime import timedelta
-
+import glob
 from os.path import expanduser
 
 from pymongo import MongoClient
@@ -26,6 +28,7 @@ PORT = 27017
 home = os.path.expanduser("~")
 dataDir  = './' #os.path.join(home, 'largeData', 'M1M3_ML')
 #BMPatchDir = os.path.join(dataDir, 'LSST_BM_patch_190508')
+ml_data_dir = "/Users/bxin/GMT_docs/1_M1/Analysis/ml_data/data/Optical Data/"
 
 #fat = np.array(FATABLE)
 #actID = np.int16(fat[:, FATABLE_ID])
@@ -110,45 +113,60 @@ try:
     nact = len(dfSA)
     print('N actuators = ', nact)
 
-    #read Afz (Fz influence matrix)
-    df = pd.read_csv(dataFolder+'/influnce_matrix_files/Afz-13-Apr-2023.csv', header=None)
+    TRDate = '09Jan2025'
+
+    TRIFFolder = '/influnce_matrix_files/OA_influence_matrices_all/OA_surface_normal_*_%s/'%TRDate
+    TRIFFolder = glob.glob(dataFolder+TRIFFolder)[0]
+    print(TRIFFolder)
+    Dec24IFFolder = '/influnce_matrix_files/OA_influence_matrices_all/OA_surface_normal_normalised_20Dec2024/'
+    #read Afz (Fz influence matrix) - 01/02/2025. Trupti confirmed on slack that this is surface normal
+    df = pd.read_csv(TRIFFolder+'Afz-nohp-%s-%s-%s.csv'%(TRDate[:2],TRDate[2:5],TRDate[5:]), header=None)
     Afz = np.array(df)
     print('Afz = ',Afz.shape)
-    # this is Afz only; it is 27685 x 170.
+    # this is Afz only; it is 27547 x 165.
 
     #read Afx (Fx influence matrix)
-    df = pd.read_csv(dataFolder+'/influnce_matrix_files/Afx-24-Jul-2023.csv', header=None)
+    df = pd.read_csv(TRIFFolder+'Afz-nohp-%s-%s-%s.csv'%(TRDate[:2],TRDate[2:5],TRDate[5:]), header=None)
     Afx = np.array(df)
     print('Afx = ', Afx.shape)
+
     #read Afy (Fy influence matrix)
-    df = pd.read_csv(dataFolder+'/influnce_matrix_files/Afy-24-Jul-2023.csv', header=None)
+    df = pd.read_csv(TRIFFolder+'Afz-nohp-%s-%s-%s.csv'%(TRDate[:2],TRDate[2:5],TRDate[5:]), header=None)
     Afy = np.array(df)
     print('Afy = ', Afy.shape)
 
-    #read Fz Bending Modes & forces
-    df = pd.read_csv(dataFolder+'/influnce_matrix_files/U-13-Apr-2023.csv', header=None)
+    #read Fz Bending Modes & forces (note: Uzm is for the moments.)
+    df = pd.read_csv(TRIFFolder+'Uz_norm-nohp-%s-%s-%s.csv'%(TRDate[:2],TRDate[2:5],TRDate[5:]), header=None)
     UMat = np.array(df)
     print('U matrix', UMat.shape)
-    df = pd.read_csv(dataFolder+'/influnce_matrix_files/V-13-Apr-2023.csv', header=None)
-    VMat = np.array(df)
-    print('V matrix', VMat.shape)
-    df = pd.read_csv(dataFolder+'/influnce_matrix_files/S-13-Apr-2023.csv', header=None)
+
+    df = pd.read_csv(TRIFFolder+'Sz_norm-nohp-%s-%s-%s.csv'%(TRDate[:2],TRDate[2:5],TRDate[5:]), header=None)
     SMat = np.array(df)
     print('S matrix', SMat.shape)
 
+    df = pd.read_csv(TRIFFolder+'Vz_norm-nohp-%s-%s-%s.csv'%(TRDate[:2],TRDate[2:5],TRDate[5:]), header=None)
+    VMat = np.array(df)
+    print('V matrix', VMat.shape)    
+    
     #read FEA nodes data
-    mat = scipy.io.loadmat(dataFolder+'/influnce_matrix_files/NodeXYZsurface_meters.mat')
-    nodeID = mat['NodeXYZsurface_meters'][:,0]
-    nodex = mat['NodeXYZsurface_meters'][:,2] #swap x/y to get to M1B
-    nodey = mat['NodeXYZsurface_meters'][:,1]
-    nodez = mat['NodeXYZsurface_meters'][:,3]
+    df = pd.read_csv(dataFolder+Dec24IFFolder+'surfacenodes_M1B-20-Dec-2024.csv')
+    nodeID = np.array(df['nodeID'])
+    nodex = np.array(df['X'])
+    nodey = np.array(df['Y'])
+    nodez = np.array(df['Z'])
     print('N node = ', len(nodeID))
 
+    # use these indices to remove surface nodes outside of CA
+    noder = np.sqrt(nodex**2+nodey**2)
+    insideCA = noder< np.max(nodex_ml) #diameter_of_CA/2.0
+    nodeID = nodeID[insideCA]
+    nodex = nodex[insideCA]
+    nodey = nodey[insideCA]
+    nodez = nodez[insideCA]
+
     ############normalize bending modes to RMS = 1um ###################
-    UMat *= np.sqrt(UMat.shape[0])
-    for modeID in range(1, UMat.shape[1]+1):
-        VMat[:, modeID-1] *= 1e-6/SMat[modeID-1, modeID-1]*np.sqrt(UMat.shape[0])
-        #1e-6 due to meter to micron conversion
+    #UMat is already normalized to RMS of 1.
+    VMat = np.linalg.pinv(SMat@VMat.T/VMat.shape[0])*1e-6
 
     npuck = np.zeros(nact)
     for i in range(nact):
@@ -194,6 +212,24 @@ def mlFvec2gmtFvec(mlFvec):
             gmtFvec[i] /= 2.
     return gmtFvec
 
+def mlFvec2gmt165Fvec(mlFvec):
+    '''
+    convert a ML force vector (165x1) into a GMT force vector (165x1)
+    input:
+        mlFvec: ML force vector (165x1)
+        Buddy has 165 acts, 1 under each quad. the force is 2*F.
+    output:
+        GMT force vector (170x1)
+        GMT has 170 acts, including 5 pairs under quad loadspreaders. 
+        For example, one pair is 144 and 1144. They always have equal force, F.
+    '''
+    gmtFvec = np.zeros(165)
+    for i in range(165):
+        gmtFvec[i] = mlFvec[saID2mlModeID(saID[i])-1]
+        #if np.array(dfSA['LSActType'])[i]==5: #quad
+        #    gmtFvec[i] /= 2.
+    return gmtFvec
+
 def gmtFvec2mlFvec(gmtFvec):
     '''
     convert a GMT force vector (170x1) into a ML force vector (165x1)
@@ -212,6 +248,28 @@ def gmtFvec2mlFvec(gmtFvec):
             idx2 = np.where(saID==(saID_ml[i]//1e6))[0]
             if len(idx1) == 1:
                 mlFvec[i] += gmtFvec[idx1]
+            if len(idx2) == 1:
+                mlFvec[i] += gmtFvec[idx2]
+    return mlFvec
+
+def gmt165Fvec2mlFvec(gmtFvec):
+    '''
+    convert a GMT force vector (165x1) into a ML force vector (165x1)
+    input:
+        gmtFvec: GMT force vector (170x1)
+    output:
+        mlFvec: ML force vector (165x1)
+    '''
+    mlFvec = np.zeros(nact_ml)
+    for i in range(nact_ml):
+        idx = np.where(saID==(saID_ml[i]))[0]
+        if len(idx) == 1:
+            mlFvec[i] = gmtFvec[idx]
+        if saID_ml[i]>1e6:
+            idx1 = np.where(saID==(saID_ml[i]%1e6))[0] #e.g. saID_ml can be 144001144, this gives index for SA1144
+            idx2 = np.where(saID==(saID_ml[i]//1e6))[0] #this gives index for SA144
+            #if len(idx1) == 1:
+            #    mlFvec[i] += gmtFvec[idx1]
             if len(idx2) == 1:
                 mlFvec[i] += gmtFvec[idx2]
     return mlFvec
@@ -306,10 +364,28 @@ def readH5Map(fileset, dataset = '/dataset'):
         i+=1
     data /= i
     data = np.rot90(data, 1) # so that we can use imshow(data, origin='lower')
-    return data, centerRow, centerCol, pixelSize
+    return data, centerRow, centerCol, pixelSize, timeStamp
 
-def getH5date():
-    return 1
+Sxn = 853
+Syn = 853
+def getH5date(h5file):
+    f = h5py.File(h5file,'r')
+    data0 = f[dataset]
+    if 'date' in data0.attrs.keys():
+        if len(data0.attrs['date']) == 1:
+            timeStamp = data0.attrs['date'][0].decode('ascii')
+        else:
+            timeStamp = data0.attrs['date'].decode('ascii')
+    else:
+        timeStamp = 'date not in h5 file.'    
+    datetime_obj = datetime.strptime(timeStamp, "%a %b %d %H:%M:%S %Y")
+    unix_timestamp = int(datetime_obj.timestamp())
+    return unix_timestamp
+
+def unix_ts(h5string):
+    datetime_obj = datetime.strptime(h5string, "%a %b %d %H:%M:%S %Y")
+    unix_timestamp = int(datetime_obj.timestamp())
+    return unix_timestamp
 
 def mkXYGrid(s, centerRow, centerCol, pixelSize):
     '''
@@ -323,6 +399,73 @@ def mkXYGrid(s, centerRow, centerCol, pixelSize):
     [x, y] = np.meshgrid(xVec, yVec)
     return x,y
 
+def showTMaps(tss):
+    #timestamps (tss) example: 
+    #["Fri Jan 10 14:04:57 2025", "Fri Jan 10 14:14:57 2025", "Fri Jan 10 15:20:57 2025", "Fri Jan 10 15:30:57 2025"]
+
+    # Define the grid for interpolation
+    grid_size = 500  # Resolution of the grid
+    xi = np.linspace(-radius_of_CA, radius_of_CA, grid_size)
+    yi = np.linspace(-radius_of_CA, radius_of_CA, grid_size)
+    xi, yi = np.meshgrid(xi, yi)
+
+    # Create a circular mask for the given radius
+    mask = np.sqrt(xi**2 + yi**2) <= radius_of_CA
+
+    # Plot the result
+    fig, ax = plt.subplots(len(tss),3,figsize=(18,4*len(tss)))
+    for i,ts in enumerate(tss):
+        print('----------------  ', ts)#, unix_ts(ts))
+        tc, tt = getDBData(unix_ts(ts),'m1_s1_thermal_ctrl/i/tc_temperature/value', duration_in_s=100, samples=1)
+        #back plate
+        x = tc_locs[idx_mirror_b][:,0] 
+        y = tc_locs[idx_mirror_b][:,1]
+        z = tc[0,idx_mirror_b]
+        # Interpolate z-values to the grid
+        zi = griddata((x, y), z, (xi, yi), method='linear')
+        zi[~mask] = np.nan  # Set values outside the circle to NaN
+        
+        contour = ax[i][0].contourf(xi, yi, zi, levels=100, cmap='jet')
+        fig.colorbar(contour, ax=ax[i][0])#, label='')
+        ax[i][0].scatter(x, y, c=z, edgecolor='k', cmap='jet', label='TCs')
+        ax[i][0].set_aspect('equal', adjustable='box')
+        ax[i][0].set_title('Back, PV = %.2f K'%(np.max(z)-np.min(z)))
+        #ax[i][0].set_xlabel('X (m)')
+        ax[i][0].set_ylabel('Y (m)')
+        ax[i][0].legend()
+        
+        #levels = np.linspace(np.min(z), np.max(z), 100)
+        #front plate
+        x = tc_locs[idx_mirror_f][:,0] 
+        y = tc_locs[idx_mirror_f][:,1]
+        z = tc[0,idx_mirror_f]
+        zi = griddata((x, y), z, (xi, yi), method='linear')
+        zi[~mask] = np.nan  # Set values outside the circle to NaN
+        
+        contour = ax[i][1].contourf(xi, yi, zi, levels=100, cmap='jet')
+        fig.colorbar(contour, ax=ax[i][1])#, label='Z values')
+        ax[i][1].scatter(x, y, c=z, edgecolor='k', cmap='jet', label='TCs')
+        ax[i][1].set_aspect('equal', adjustable='box')
+        ax[i][1].set_title('Front, PV = %.2f K'%(np.max(z)-np.min(z)))
+        #ax[i][0].set_xlabel('X (m)')
+        ax[i][1].set_ylabel('Y (m)')
+        ax[i][1].legend()
+        
+        #back-front
+        z = tc[0,idx_mirror_b] - tc[0,idx_mirror_f]
+        zi = griddata((x, y), z, (xi, yi), method='linear')
+        zi[~mask] = np.nan  # Set values outside the circle to NaN
+        
+        contour = ax[i][2].contourf(xi, yi, zi, levels=100, cmap='jet')
+        fig.colorbar(contour, ax=ax[i][2])#, label='Z values')
+        ax[i][2].scatter(x, y, c=z, edgecolor='k', cmap='jet', label='TCs')
+        ax[i][2].set_aspect('equal', adjustable='box')
+        ax[i][2].set_title('Back-Front, PV = %.2f K'%(np.max(z)-np.min(z)))
+        #ax[i][0].set_xlabel('X (m)')
+        ax[i][2].set_ylabel('Y (m)')
+        ax[i][2].legend()
+    plt.show()
+    
 def m1b_to_mlcs(m1b_vec):
     mlcs_vec = np.zeros_like(m1b_vec)
     if m1b_vec.ndim == 2:
@@ -493,6 +636,7 @@ def getDBData(myt, table_name, duration_in_s=60, samples=60):
         if len(ts_data) == 0:
             ts_data.append(ts_s)
             force_data.append(record['value'])
+            n_interval +=1
         else:
             if ts_s - ts_data[0]> n_interval*desired_interval-0.01:
                 ts_data.append(ts_s)

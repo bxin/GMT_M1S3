@@ -1,0 +1,20 @@
+1/6: principal optics alignment
+1/7: Sec5 initial surface measurement; add 2 suckulators
+1/8: taping SA gap started night before; Restart suckulators around noon.
+1/9: Sec6 iter1 correction forces calculated; GMT not ready to apply them
+1/10: Sec6 iter1-6; will lower SA control boards into Lower Plenum later
+
+1/13 Sec7. winner=2 measurements x 30 samples x 2s = 60 samples x 2s
+1/14 Sec8. repeatability; steps 1-14 done
+1/15 Sec8. repeatability finished 
+1/16 Sec9. single SA Influence Functions; 
+     Sec 10 GMT BM 1-3 with +00+ measurements
+1/17 Sec 10 GMT BM 4-6 with +00+ measurements
+     Sec 10 GMT BM 7-11 with +--+ measurements
+
+1/21 Sec 10 GMT BM 12-27
+     Sec 10 ML BM 1-
+
+
+
+
