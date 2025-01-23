@@ -165,7 +165,7 @@ try:
     nodez = nodez[insideCA]
 
     ############normalize bending modes to RMS = 1um ###################
-    #UMat is already normalized to RMS of 1.
+    #UMat is already normalized by TR to RMS of 1.
     VMat = np.linalg.pinv(SMat@VMat.T/VMat.shape[0])*1e-6
 
     #make a Afz with 170 columns to avoid breaking previous code
@@ -192,13 +192,27 @@ try:
         elif dfSA['LSActType'][i] == 5: #Triple Axis on quad puck LS
             npuck[i] = 2
 
-    #for making plots, use Optical Coordinate System (ocs)
+    #Optical Coordinate System (ocs) = h5 map coordinate system
     sax_ocs = say
     say_ocs = sax
     
 except FileNotFoundError:
     print('Data do not exist. Are you sure they are there?')
-                
+
+def gmt165Fvec2gmt170Fvec(f165):
+    assert f165.shape[0] == 165
+    f170 = np.zeros(170)
+    f170[:160] = f165[:160]
+    f170[160:165] = f165[160:165]/2
+    f170[165:] = f165[160:165]/2
+    return f170
+def gmt170Fvec2gmt165Fvec(f170):
+    assert f170.shape[0] == 170
+    f165 = np.zeros(165)
+    f165[:160] = f170[:160]
+    f165[160:165] = f170[160:165] + f170[165:]
+    return f165
+
 def mlFvec2gmtFvec(mlFvec):
     '''
     convert a ML force vector (165x1) into a GMT force vector (170x1)
@@ -344,10 +358,13 @@ def readH5Map(fileset, dataset = '/dataset', verbose = True):
         f = h5py.File(h5file,'r')
         data0 = f[dataset]
         if 'date' in data0.attrs.keys():
-            if len(data0.attrs['date']) == 1:
-                timeStamp = data0.attrs['date'][0].decode('ascii')
-            else:
-                timeStamp = data0.attrs['date'].decode('ascii')
+            try:
+                if len(data0.attrs['date']) == 1:
+                    timeStamp = data0.attrs['date'][0].decode('ascii')
+                else:
+                    timeStamp = data0.attrs['date'].decode('ascii')
+            except AttributeError:
+                timeStamp = data0.attrs['date']
         else:
             timeStamp = 'date not in h5 file.'
         if i==0:
@@ -387,7 +404,7 @@ def getH5date(h5file):
     unix_timestamp = int(datetime_obj.timestamp())
     return unix_timestamp
 
-def writeH5map(map_file, map_data, dataset = '/dataset'):
+def writeH5map(map_file, map_data, centerRow,centerCol,pixelSize, ts, dataset = '/dataset'):
     with h5py.File(map_file, 'w') as h5f:
         # Create the dataset in the default folder '/dataset'
         #why the transpose and fliplr? 
@@ -399,6 +416,7 @@ def writeH5map(map_file, map_data, dataset = '/dataset'):
         dataset.attrs['centerRow'] = centerRow
         dataset.attrs['centerCol'] = centerCol
         dataset.attrs['pixelSize'] = pixelSize
+        dataset.attrs['date'] = ts
     
 def unix_ts(h5string):
     datetime_obj = datetime.strptime(h5string, "%a %b %d %H:%M:%S %Y")
@@ -571,7 +589,7 @@ def showSurfMap(m1s, m3s, x1, y1, x3, y3):
     s[idx] = s_temp[idx]
     return s
 
-def showForceMap(forces, figure_title):
+def showForceMap_OCS(forces, figure_title):
     '''
     input: 
         forces should already be in optical CS (OCS)
@@ -594,7 +612,7 @@ def showForceMap(forces, figure_title):
     plt.colorbar()
     plt.title(figure_title)
 
-def showForceMap_M1B(forces, figure_title):
+def showForceMap_M1B(forces, figure_title, precision=0):
     '''
     input: 
         forces should already be in M1B
@@ -603,19 +621,21 @@ def showForceMap_M1B(forces, figure_title):
         
     '''
     print('input forces and output figure both in M1B')
+    format_str = f"{{:.{precision}f}}" 
     fig, ax = plt.subplots(1,1,figsize=(10,8))
-    plt.scatter(sax, say, c=forces, cmap=reversed_cmap)
+    plt.scatter(sax, say, c=forces) #, cmap=reversed_cmap)
     #plt.scatter(sax_ml, say_ml, s=100, facecolors='none', edgecolors='k')
     for i in range(len(sax)):
         if (np.any(abs(sax[i]+say[i]-sax[:i]-say[:i])<1e-4)):
-            plt.text(sax[i]+.05, say[i]-0.15, '%.0f'%forces[i],color='r',fontsize=8)
+            plt.text(sax[i]+.05, say[i]-0.15, f"{format_str.format(forces[i])}",color='r',fontsize=8)
         else:
-            plt.text(sax[i]+.05, say[i]+.05, '%.0f'%forces[i],color='r',fontsize=8)
+            plt.text(sax[i]+.05, say[i]+.05, f"{format_str.format(forces[i])}",color='r',fontsize=8)
     plt.axis('equal')
     plt.xlabel('x in meter')
     plt.ylabel('y in meter')
     plt.colorbar()
     plt.title(figure_title)
+    
     
 client = MongoClient(HOST, PORT)
 tele = client.gmt_tele_1.tele_events
@@ -686,10 +706,46 @@ def getDBData(myt, table_name, duration_in_s=60, samples=60):
         aa = np.array(force_data) - 273.15
         aa = aa.reshape((-1, aa.shape[1]* aa.shape[2])) #n_time x 192
     else:
-        #we convert all data to be consistent with RFCML surface maps (so that our heads won't be spinning!)
-        aa = m1b_to_mlcs(np.array(force_data))
+        aa = np.array(force_data) #in M1B
     print(aa.shape)
     return aa, np.array(ts_data)
+
+def find_cmd_file(folder_path, given_timestamp):
+    """
+    Finds the last .txt file in the folder with a Unix timestamp before the given timestamp.
+
+    Args:
+        folder_path (str): Path to the folder containing files.
+        given_timestamp (int): The Unix timestamp to compare against.
+
+    Returns:
+        str: The name of the last file before the given timestamp, or None if no such file exists.
+    """
+    # Get a list of all files in the folder
+    all_files = os.listdir(folder_path)
+    
+    # Filter files to match the pattern 'command_xx.txt'
+    txt_files = [f for f in all_files if f.startswith("command_") and f.endswith(".txt")]
+    
+    # Extract timestamps from the filenames
+    timestamps = []
+    for file in txt_files:
+        try:
+            # Extract the number after 'command_' and before '.txt'
+            timestamp = int(file.split("_")[1].split(".")[0])
+            timestamps.append((timestamp, file))
+        except (IndexError, ValueError):
+            continue  # Skip files that don't match the expected format
+    
+    # Find the largest timestamp less than the given timestamp
+    valid_files = [(t, f) for t, f in timestamps if t < given_timestamp]
+    
+    if not valid_files:
+        return None  # No valid files found
+    
+    # Sort by timestamp and pick the largest one
+    last_file = max(valid_files, key=lambda x: x[0])
+    return folder_path + last_file[1]  # Return the file name
 
 def ZernikeMaskedFit(S, x, y, numTerms, mask, e):
 
