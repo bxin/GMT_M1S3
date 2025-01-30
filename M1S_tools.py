@@ -71,7 +71,7 @@ try:
 
     #read Afz (Fz influence matrix)
     df = scipy.io.loadmat('../model_data/influenceFunctions_ml.mat')
-    Afn_ml = df['interactionMat']
+    Afn_ml = df['interactionMat'] #we could change the sign for surface and force at the same time. -1*-1 = +1
     fv_ml = df['forceMat'] #fv = fv^T
     print('Afn = ',Afn_ml.shape)
     print('fv = ', fv_ml.shape)
@@ -92,10 +92,27 @@ try:
     print('N node = ', len(nodex_ml))
 
     ############normalize bending modes to RMS = 1um ###################
-    UMat_ml *= np.sqrt(UMat_ml.shape[0])
+    UMat_ml *= -np.sqrt(UMat_ml.shape[0]) #convert to M1B
     for modeID in range(1, UMat_ml.shape[1]+1):
-        VMat_ml[:, modeID-1] *= 1e3/SMat_ml[modeID-1, modeID-1]*np.sqrt(UMat_ml.shape[0])
-        #1e3 due to nanometer to micron conversion; RFCML mode shapes are in nanometers
+        VMat_ml[:, modeID-1] *= -1e3/SMat_ml[modeID-1, modeID-1]*np.sqrt(UMat_ml.shape[0])
+        #1e3 due to nanometer to micron conversion; RFCML mode shapes are in nanometers; -1 for conversion to M1B
+
+    #modes To Swap, to match the GMT BMs
+    if 0:
+        mode1, mode2 = 32, 33
+        UMat_ml[:, [mode1-1, mode2-1]] = UMat_ml[:, [mode2-1, mode1-1]]
+        VMat_ml[:, [mode1-1, mode2-1]] = VMat_ml[:, [mode2-1, mode1-1]]
+        mode1, mode2 = 36, 37
+        UMat_ml[:, [mode1-1, mode2-1]] = UMat_ml[:, [mode2-1, mode1-1]]
+        VMat_ml[:, [mode1-1, mode2-1]] = VMat_ml[:, [mode2-1, mode1-1]]
+    
+    #these signs are random out of the SVD; let's make them consistent 
+    if 0:
+        sign_MLBM_GMT = np.loadtxt('../model_data/sign_MLBM_GMT.txt')
+        for i in range(len(sign_MLBM_GMT)):
+            UMat_ml[:,i] *= sign_MLBM_GMT[i]
+            VMat_ml[:,i] *= sign_MLBM_GMT[i]
+        
 except FileNotFoundError:
     print('***Data not exist. Are you sure they are there?***')
     
@@ -385,7 +402,7 @@ def readH5Map(fileset, dataset = '/dataset', verbose = True):
             print('%s: %s '%(filenameShort, timeStamp))
         i+=1
     data /= i
-    data = np.rot90(data, 1) # so that we can use imshow(data, origin='lower')
+    data = np.rot90(data, 1) # so that we can use imshow(data, origin='lower') & match Buddy's sec 5 slides visually
     return data, centerRow, centerCol, pixelSize, timeStamp
 
 Sxn = 853

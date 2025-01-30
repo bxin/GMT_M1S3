@@ -16,6 +16,10 @@
 1/21 Sec 10 GMT BM 12-27 with +--+ measurements
 
 ------------Campaign 2---------
-
+1/27 Sec 10 GMT BM 25,26,27, ML BM 25,26,27
+1/28 Sec 10 ML BM 1-17
+1/29 Sec 10 ML BM 18-24, Sec 9. single SA repeats + xx new ones
+1/30 Sec 11
+1/31 
 
 
