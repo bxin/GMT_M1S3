@@ -1,5 +1,8 @@
 import os
 import sys
+os.environ["MKL_SERVICE_FORCE_INTEL"] = "1"
+os.environ["MKL_WARN_LEVEL"] = "0"
+
 import h5py
 import numpy as np
 from scipy import interpolate
@@ -142,16 +145,6 @@ try:
     print('Afz = ',Afz.shape)
     # this is Afz only; it is 27547 x 165.
 
-    #read Afx (Fx influence matrix)
-    df = pd.read_csv(TRIFFolder+'Afz-nohp-%s-%s-%s.csv'%(TRDate[:2],TRDate[2:5],TRDate[5:]), header=None)
-    Afx = np.array(df)
-    print('Afx = ', Afx.shape)
-
-    #read Afy (Fy influence matrix)
-    df = pd.read_csv(TRIFFolder+'Afz-nohp-%s-%s-%s.csv'%(TRDate[:2],TRDate[2:5],TRDate[5:]), header=None)
-    Afy = np.array(df)
-    print('Afy = ', Afy.shape)
-
     #read Fz Bending Modes & forces (note: Uzm is for the moments.)
     df = pd.read_csv(TRIFFolder+'Uz_norm-nohp-%s-%s-%s.csv'%(TRDate[:2],TRDate[2:5],TRDate[5:]), header=None)
     UMat = np.array(df)
@@ -213,8 +206,26 @@ try:
     sax_ocs = say
     say_ocs = sax
     
+    
+    TRDate = '07Feb2025'
+
+    TRIFFolder = '/influnce_matrix_files/OA_influence_matrices_all/OA_surface_normal_*_%s/'%TRDate
+    TRIFFolder = glob.glob(dataFolder+TRIFFolder)[0]
+    
+    print(TRIFFolder)
+    
+    #read Afx (Fx influence matrix)
+    df = pd.read_csv(TRIFFolder+'Afx-nohp-%s-%s-%s.csv'%(TRDate[:2],TRDate[2:5],TRDate[5:]), header=None)
+    Afx = np.array(df)
+    print('Afx = ', Afx.shape)
+
+    #read Afy (Fy influence matrix)
+    df = pd.read_csv(TRIFFolder+'Afy-nohp-%s-%s-%s.csv'%(TRDate[:2],TRDate[2:5],TRDate[5:]), header=None)
+    Afy = np.array(df)
+    print('Afy = ', Afy.shape)
+    
 except FileNotFoundError:
-    print('Data do not exist. Are you sure they are there?')
+    print('-----------------------Data do not exist. Are you sure they are there?')
 
 def gmt165Fvec2gmt170Fvec(f165):
     assert f165.shape[0] == 165
@@ -355,7 +366,30 @@ def saID2swModeID(gmtsaID):
     idx = np.where(saID_sw==gmtsaID)[0]
     return idx[0]+1
 
-def readH5Map(fileset, dataset = '/dataset', verbose = True):
+def parse_ml_data_folder(folder_path):
+
+    '''
+    for example, parse_ml_data_folder('%s/Sec 7'%(ml_data_dir))
+    '''
+
+    # List all .h5 files in folder and subfolders
+    h5_files = []
+    file_timestamps = []
+    for root, _, files in os.walk(folder_path):
+        for file in files:
+            if file.endswith(".h5"):
+                filename = os.path.join(root, file)
+                h5_files.append(filename)
+                m1s,centerRow,centerCol,pixelSize, ts = readH5Map([filename], verbose=False)
+                file_timestamps.append(ts)
+    sort_idx = np.argsort([unix_ts(ts) for ts in file_timestamps])
+    sorted_files = np.array(h5_files)[sort_idx]
+    sorted_timestamps = np.array(file_timestamps)[sort_idx]
+    for i, filename in enumerate(sorted_files):
+        print(sorted_timestamps[i], '\t', filename.split(folder_path)[-1])
+    return sorted_timestamps, sorted_files
+
+def readH5Map(fileset, dataset = '/dataset', apply_mask = True, verbose = True):
     '''
     The method takes a list of h5 files, get the images, and average them to get a combined image array.
     input:
@@ -403,6 +437,10 @@ def readH5Map(fileset, dataset = '/dataset', verbose = True):
         i+=1
     data /= i
     data = np.rot90(data, 1) # so that we can use imshow(data, origin='lower') & match Buddy's sec 5 slides visually
+    if apply_mask:
+        [x1, y1] = mkXYGrid(data, centerRow, centerCol, pixelSize)
+        r1 = np.sqrt(x1**2 + y1**2)
+        data[r1>radius_of_CA] = data[0,0] #whether it is 0 or nan, we follow that
     return data, centerRow, centerCol, pixelSize, timeStamp
 
 Sxn = 853
@@ -496,7 +534,7 @@ def showTMaps(tss):
         fig.colorbar(contour, ax=ax[i][0])#, label='')
         ax[i][0].scatter(x, y, c=z, edgecolor='k', cmap='jet', label='TCs')
         ax[i][0].set_aspect('equal', adjustable='box')
-        ax[i][0].set_title('Back, PV = %.2f K'%(np.max(z)-np.min(z)))
+        ax[i][0].set_title('Back, PV = %.2f K, %s'%(np.max(z)-np.min(z), ts))
         #ax[i][0].set_xlabel('X (m)')
         ax[i][0].set_ylabel('Y (m)')
         ax[i][0].legend()
@@ -513,7 +551,7 @@ def showTMaps(tss):
         fig.colorbar(contour, ax=ax[i][1])#, label='Z values')
         ax[i][1].scatter(x, y, c=z, edgecolor='k', cmap='jet', label='TCs')
         ax[i][1].set_aspect('equal', adjustable='box')
-        ax[i][1].set_title('Front, PV = %.2f K'%(np.max(z)-np.min(z)))
+        ax[i][1].set_title('Front, PV = %.2f K, %s'%(np.max(z)-np.min(z), ts))
         #ax[i][0].set_xlabel('X (m)')
         ax[i][1].set_ylabel('Y (m)')
         ax[i][1].legend()
@@ -527,7 +565,7 @@ def showTMaps(tss):
         fig.colorbar(contour, ax=ax[i][2])#, label='Z values')
         ax[i][2].scatter(x, y, c=z, edgecolor='k', cmap='jet', label='TCs')
         ax[i][2].set_aspect('equal', adjustable='box')
-        ax[i][2].set_title('Back-Front, PV = %.2f K'%(np.max(z)-np.min(z)))
+        ax[i][2].set_title('Back-Front, PV = %.2f K, %s'%(np.max(z)-np.min(z), ts))
         #ax[i][0].set_xlabel('X (m)')
         ax[i][2].set_ylabel('Y (m)')
         ax[i][2].legend()
@@ -694,24 +732,36 @@ def getDBData(myt, table_name, duration_in_s=60, samples=60):
     start_time = t0
     end_time = t0+duration_in_s
 
-    records = tele.find({"ts":{"$gt":start_time*1000000000.0,"$lt":end_time*1000000000.0},
-                     "src":{"$eq":f"{table_name}"}})
-    force_data = []
-    ts_data = []
-    desired_interval = duration_in_s/samples
-    n_interval = 0
-    for record in records:
-        ts_s = record["ts"]/ 1000000000.0
-        if len(ts_data) == 0:
-            ts_data.append(ts_s)
-            force_data.append(record['value'])
-            n_interval +=1
-        else:
-            if ts_s - ts_data[0]> n_interval*desired_interval-0.01:
+    if 0: #this is supposed to be more efficient. but did not seem to work better
+        ts_data = np.arange(start_time, end_time, samples)
+        force_data = []
+        for t in ts_data:
+            record = tele.find_one(
+                {"timestamp": {"$gte": int(t)}},  # Find the closest timestamp
+                sort=[("timestamp", 1)]  # Sort ascending to get the nearest
+            )
+            if record:
+                force_data.append(record)
+    
+    if 1:
+        records = tele.find({"ts":{"$gt":start_time*1000000000.0,"$lt":end_time*1000000000.0},
+                         "src":{"$eq":f"{table_name}"}})
+        force_data = []
+        ts_data = []
+        desired_interval = duration_in_s/samples
+        n_interval = 0
+        for record in records:
+            ts_s = record["ts"]/ 1000000000.0
+            if len(ts_data) == 0:
                 ts_data.append(ts_s)
                 force_data.append(record['value'])
                 n_interval +=1
-    print(np.array(force_data).shape)
+            else:
+                if ts_s - ts_data[0]> n_interval*desired_interval-0.01:
+                    ts_data.append(ts_s)
+                    force_data.append(record['value'])
+                    n_interval +=1
+        #print(np.array(force_data).shape)
     if 'dewpoint' in table_name:
         #no sign change
         aa = np.array(force_data) - 273.15
@@ -727,6 +777,197 @@ def getDBData(myt, table_name, duration_in_s=60, samples=60):
     print(aa.shape)
     return aa, np.array(ts_data)
 
+def plotOptimization(m1s_array, m1rms_array, ts_array, zercoeff, ntsamples, bm_coeff_ntsamples, tt, mirror_pos_ntsamples, tambient, tc, band_width):
+    '''
+        all variables are global variables. Error occur if any has not been defined.
+
+    '''
+    niter = len(ts_array)
+    assert niter == m1s_array.shape[2]
+    assert niter == m1rms_array.shape[0]
+    assert niter == zercoeff.shape[0]
+    nzer = zercoeff.shape[1]
+    assert ntsamples == bm_coeff_ntsamples.shape[0]
+    nBMs = bm_coeff_ntsamples.shape[1]
+    
+    figsize = (10, 10)  # Adjust figure size
+    fig = plt.figure(figsize=figsize)
+    gs = fig.add_gridspec(6, 1, height_ratios=[1, 1, 1, 1, 1, 1])  # Larger space for images at the top
+    
+    #row 1: plot the images at the top.
+    for i in range(niter):
+        left = i / niter  # Normalize the position
+        width = 1 / niter  # Normalize the width
+        ax_img = fig.add_axes([left, 0.8, width, 0.15])  # [x, y, width, height] in figure coordinates
+        ax_img.imshow(m1s_array[:,:,i], origin='lower', vmin=-200, vmax=200)
+        ax_img.set_title('#%d, %.0f nm'%(i+1, m1rms_array[i]), fontsize=8, pad=3)
+        ax_img.axis("off")  # Hide axes for clean layout
+        
+    # Compute elapsed time in minutes from t0
+    t0 = tt[0]  # Start time (first timestamp)
+    tt_minutes = (tt - t0) / 60  # Convert to minutes
+    ts_minutes = ([unix_ts(t) for t in ts_array] - t0) / 60  # Convert ts_array to minutes
+
+    # Add the 4 subplots (plots 1-4) that share the x-axis
+    ax = [fig.add_subplot(gs[i]) for i in range(5)]  # Initialize axes for plots 1-4
+
+    # row 2: plot Zernikes vs time
+    for izer in range(nzer):
+        condi = (izer+1>=4) and (izer+1<=8) #np.max(abs(zercoeff[:, izer]))>100
+        labelString = 'Z%d'%(izer+1) if condi else None
+        linestyle = '-' if condi else '--'
+        ax[0].plot(ts_minutes-band_width/2., zercoeff[:, izer], linestyle ,label=labelString)
+    ax[0].legend(ncol=5)
+    ax[0].set_ylabel('RMS (nm)')
+    
+    #row 3: BM coefficients
+    for modeID in np.arange(1, nBMs+1):
+        labelString = ''
+        if modeID in [1,2,3]: #np.max(np.abs(bm_coeff[1:,modeID-1]))>0.1:
+            labelString = 'BM%2d'%modeID
+        ax[1].plot(tt_minutes, bm_coeff_ntsamples[:, modeID-1], label=labelString)
+    ax[1].legend()
+    ax[1].set_ylabel(r'RMS ($\mu$m)')
+    
+    #row 4: x,y,z
+    for idof, slabel in enumerate(['x','y','z']):
+        ax[2].plot(tt_minutes, mirror_pos_ntsamples[:,idof]*1e3, label=slabel) #now in mm
+    ax[2].legend()
+    ax[2].set_ylabel('mm')
+
+    #row 5: Rxyz
+    for idof, slabel in enumerate(['Rx','Ry','Rz']):
+        ax[3].plot(tt_minutes, mirror_pos_ntsamples[:,idof+3]*rad2arcsec, label=slabel) #now in arcsec
+    ax[3].legend()
+    ax[3].set_ylabel('arcsecond')
+    
+    ax[4].plot(tt_minutes, tambient, 'grey', label='ambient')
+    ax[4].plot(tt_minutes, np.mean(tc[:,idx_mirror_f][:,idxfo], axis=1), '--b', label='front edge')
+    ax[4].plot(tt_minutes, np.mean(tc[:,idx_mirror_f][:,idxfi], axis=1), '-b', label='front center')
+    ax[4].plot(tt_minutes, np.mean(tc[:,idx_mirror_b][:,idxbo], axis=1), '--r', label='back edge')
+    ax[4].plot(tt_minutes, np.mean(tc[:,idx_mirror_b][:,idxbi], axis=1), '-r', label='back center')
+    ax[4].legend(ncol=5) #, framealpha=0.7)
+    ax[4].set_xlabel('Time (minutes)')
+        
+    # Adjust layout to remove gaps between plots 1-4 and ensure good spacing
+    plt.subplots_adjust(hspace=0, top=0.75)  # Set hspace to 0 to remove gap between subplots
+    for j in range(5):
+        #ax[j].grid()
+        ax[j].set_xlim(tt_minutes[0]-1, tt_minutes[-1])
+        for i,t in enumerate(ts_minutes):
+            ax[j].axvspan(t - band_width, t, color='gray', alpha=0.3)  # Ends at t, goes back 6 min
+            if j==0:
+                ax[j].text(t - band_width / 2, ax[0].get_ylim()[1], f"iter\n{i + 1}", 
+                        color='black', fontsize=12, fontweight='bold',
+                        ha='center', va='bottom')  # Label bands at the top center        
+
+def plotOptimization1(m1s_array, m1rms_array, ts_array, zercoeff, ntsamples, bm_coeff_ntsamples, tt, mirror_pos_ntsamples, tambient, tc, band_width):
+    '''
+        all variables are global variables. Error occur if any has not been defined.
+
+    '''
+    niter = len(ts_array)
+    assert niter == m1s_array.shape[2]
+    assert niter == m1rms_array.shape[0]
+    assert niter == zercoeff.shape[0]
+    nzer = zercoeff.shape[1]
+    assert ntsamples == bm_coeff_ntsamples.shape[0]
+    nBMs = bm_coeff_ntsamples.shape[1]
+    
+    figsize = (10, 10)  # Adjust figure size
+    fig = plt.figure(figsize=figsize)
+    gs = fig.add_gridspec(7, 1, height_ratios=[1, 1, 1, 1, 1, 1,1])  # Larger space for images at the top
+    
+    #row 1: plot the images at the top.
+    for i in range(niter):
+        left = i / niter  # Normalize the position
+        width = 1 / niter  # Normalize the width
+        ax_img = fig.add_axes([left, 0.8, width, 0.15])  # [x, y, width, height] in figure coordinates
+        ax_img.imshow(m1s_array[:,:,i], origin='lower', vmin=-200, vmax=200)
+        if niter<=10:
+            ax_img.set_title('iter %d, %.0f nm'%(i+1, m1rms_array[i]), fontsize=8, pad=3)
+        else:
+            ax_img.set_title('%.0f nm'%(m1rms_array[i]), fontsize=8, pad=3)
+            ax_img.text(0.5, -0.3, "%d"%(i+1), fontsize=12, ha="center", transform=ax_img.transAxes)
+        ax_img.axis("off")  # Hide axes for clean layout
+        
+    # Compute elapsed time in minutes from t0
+    t0 = tt[0]  # Start time (first timestamp)
+    tt_minutes = (tt - t0) / 60  # Convert to minutes
+    ts_minutes = ([unix_ts(t) for t in ts_array] - t0) / 60  # Convert ts_array to minutes
+
+    # Add the 4 subplots (plots 1-4) that share the x-axis
+    ax = [fig.add_subplot(gs[i]) for i in range(6)]  # Initialize axes for plots 1-4
+
+    # row 2: plot Zernikes vs time
+    for izer in range(nzer):
+        condi = (izer+1>=4) and (izer+1<=8) #np.max(abs(zercoeff[:, izer]))>100
+        labelString = 'Z%d'%(izer+1) if condi else None
+        linestyle = '-' if condi else '--'
+        ax[0].plot(ts_minutes-band_width/2., zercoeff[:, izer], linestyle ,label=labelString)
+    ax[0].legend(ncol=5)
+    ax[0].set_ylabel('RMS (nm)')
+    
+    #row 3: BM coefficients
+    for modeID in np.arange(1, nBMs+1):
+        labelString = ''
+        if modeID in [1,2,3]: #np.max(np.abs(bm_coeff[1:,modeID-1]))>0.1:
+            labelString = 'BM%2d'%modeID
+        ax[1].plot(tt_minutes, bm_coeff_ntsamples[:, modeID-1], label=labelString)
+    ax[1].legend()
+    ax[1].set_ylabel(r'RMS ($\mu$m)')
+    
+    #row 4: x,y,z
+    for idof, slabel in enumerate(['x','y','z']):
+        ax[2].plot(tt_minutes, mirror_pos_ntsamples[:,idof]*1e3, label=slabel) #now in mm
+    ax[2].legend()
+    ax[2].set_ylabel('mm')
+
+    #row 5: Rxyz
+    for idof, slabel in enumerate(['Rx','Ry','Rz']):
+        ax[3].plot(tt_minutes, mirror_pos_ntsamples[:,idof+3]*rad2arcsec, label=slabel) #now in arcsec
+    ax[3].legend()
+    ax[3].set_ylabel('arcsecond')
+    
+    #row 6: T
+    ax[4].plot(tt_minutes, tambient, 'grey', label='ambient')
+    ax[4].plot(tt_minutes, np.mean(tc[:,idx_mirror_f][:,idxfo], axis=1), '--b', label='front edge')
+    ax[4].plot(tt_minutes, np.mean(tc[:,idx_mirror_f][:,idxfi], axis=1), '-b', label='front center')
+    ax[4].plot(tt_minutes, np.mean(tc[:,idx_mirror_b][:,idxbo], axis=1), '--r', label='back edge')
+    ax[4].plot(tt_minutes, np.mean(tc[:,idx_mirror_b][:,idxbi], axis=1), '-r', label='back center')
+    ax[4].legend(ncol=5) #, framealpha=0.7)
+    ax[4].set_ylabel(r'$^\circ$C')
+    
+    ax[5].plot(tt_minutes, tambient-tambient[0], 'grey', label='ambient')
+    aa = np.mean(tc[:,idx_mirror_f][:,idxfo], axis=1)
+    ax[5].plot(tt_minutes, aa-aa[0] , '--b', label='front edge')
+    aa = np.mean(tc[:,idx_mirror_f][:,idxfi], axis=1)
+    ax[5].plot(tt_minutes, aa-aa[0], '-b', label='front center')
+    aa = np.mean(tc[:,idx_mirror_b][:,idxbo], axis=1)
+    ax[5].plot(tt_minutes, aa-aa[0], '--r', label='back edge')
+    aa = np.mean(tc[:,idx_mirror_b][:,idxbi], axis=1)
+    ax[5].plot(tt_minutes, aa-aa[0], '-r', label='back center')
+    
+    ax[5].text(0.015, 0.95, "Change since t=0", transform=ax[5].transAxes,
+           fontsize=12, verticalalignment='top', bbox=dict(facecolor='white', alpha=0.5))
+ 
+    ax[5].set_ylabel(r'$^\circ$C')
+    ax[5].set_xlabel('Time (minutes)')
+        
+    # Adjust layout to remove gaps between plots 1-4 and ensure good spacing
+    plt.subplots_adjust(hspace=0, top=0.75)  # Set hspace to 0 to remove gap between subplots
+    for j in range(6):
+        #ax[j].grid()
+        ax[j].set_xlim(tt_minutes[0]-1, tt_minutes[-1])
+        for i,t in enumerate(ts_minutes):
+            ax[j].axvspan(t - band_width, t, color='gray', alpha=0.3)  # Ends at t, goes back 6 min
+            if j==0:
+                ax[j].text(t - band_width / 2, ax[0].get_ylim()[1], f"iter\n{i + 1}", 
+                        color='black', fontsize=12, fontweight='bold',
+                        ha='center', va='bottom')  # Label bands at the top center        
+        for spine in ax[j].spines.values():
+            spine.set_linewidth(3)  # Change this value to adjust thickness
+                
 def find_cmd_file(folder_path, given_timestamp):
     """
     Finds the last .txt file in the folder with a Unix timestamp before the given timestamp.
@@ -1300,7 +1541,23 @@ idx_mirror_b = [(label.startswith("MTC") and label.endswith("B")) for label in t
 print('number of Mirror Back surface TCs = ', sum(idx_mirror_b))
 idx_mirror_m = [(label.startswith("MTC") and label.endswith("M")) for label in tc_labels]
 print('number of Mirror Middle TCs = ', sum(idx_mirror_m))
+idx_mirror_ow = [(label.startswith("MTCOW")) for label in tc_labels]
+print('number of Outer Wall TCs = ', sum(idx_mirror_ow))
+idx_mirror_in = [(label.startswith("MTCIN")) for label in tc_labels]
+print('number of Inner Wall TCs = ', sum(idx_mirror_in))
+idx_mirror_up = [("UP" in label) for label in tc_labels]
+print('number of Upper Plenum TCs = ', sum(idx_mirror_up))
+idx_mirror_lp = [("LP" in label) for label in tc_labels]
+print('number of Lower Plenum TCs = ', sum(idx_mirror_lp))
+idx_mirror_cw = [("CW" in label) for label in tc_labels]
+print('number of Cell Weldment TCs = ', sum(idx_mirror_cw))
+idx_mirror_aa = [("AA" in label) for label in tc_labels]
+print('number of Ambient Air TCs = ', sum(idx_mirror_aa))
 
+idxfo = np.sqrt(tc_locs[idx_mirror_f,0]**2+tc_locs[idx_mirror_f,1]**2) > 4
+idxfi = np.sqrt(tc_locs[idx_mirror_f,0]**2+tc_locs[idx_mirror_f,1]**2) < 1
+idxbo = np.sqrt(tc_locs[idx_mirror_b,0]**2+tc_locs[idx_mirror_b,1]**2) > 4
+idxbi = np.sqrt(tc_locs[idx_mirror_b,0]**2+tc_locs[idx_mirror_b,1]**2) < 1
 
 from scipy.special import factorial
 

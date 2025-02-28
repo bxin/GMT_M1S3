@@ -5,21 +5,51 @@
 1/9: Sec6 iter1 correction forces calculated; GMT not ready to apply them
 1/10: Sec6 iter1-6; will lower SA control boards into Lower Plenum later
 
-1/13 Sec7. winner=2 measurements x 30 samples x 2s = 60 samples x 2s
+1/13 Sec7. winner=2 measurements x (30 samples x 2s) = (60 samples x 2s)
 1/14 Sec8. repeatability; steps 1-14 done
 1/15 Sec8. repeatability finished 
 1/16 Sec9. single SA Influence Functions; 
-     Sec 10 GMT BM 1-4 with +00+ measurements
-1/17 Sec 10 GMT BM 5-6 with +00+ measurements
+     [Sec 10 GMT BM 1-4 with +00+ measurements]
+1/17 [Sec 10 GMT BM 5-6 with +00+ measurements]
      Sec 10 GMT BM 1-11 with +--+ measurements
 
 1/21 Sec 10 GMT BM 12-27 with +--+ measurements
 
-------------Campaign 2---------
+------------Campaign 2--------- All SA control boards lowered & holes sealed--------
 1/27 Sec 10 GMT BM 25,26,27, ML BM 25,26,27
 1/28 Sec 10 ML BM 1-17
-1/29 Sec 10 ML BM 18-24, Sec 9. single SA repeats + xx new ones
-1/30 Sec 11
-1/31 
+1/29 Sec 10 ML BM 18-24, 
+     Sec 9. single SA repeats 4 + 10 new ones
+1/30 Sec 11 Optimization: 5 iter of RB+14BMs, to 60nm
+1/31 Sec 11 Optimization: 9 iter of RB+27BMs, to 35nm; 
+     Sec 14 disabling SAs but no unplugging
+
+2/3 Sec 11, start from the 35nm surface, 6 iterations to 37nm 
+    Sec 10 BM 28-30
+2/4 Sec 10 BM 30-46
+2/5 Sec 15 RB vs BM, z: +/-0.25mm, 8 iters, to 43nm, then 6 iters, to 41nm
+2/6 Sec 15 RB vs BM, y: +/-0.50mm, 7 iters, to 38nm, then 7 iters, to 40nm 
+2/7 Sec 15 RB vs BM, Rz: +/- 20" , 7 iters, to 51nm, then 8 iters, to 32nm
+
+2/10 Sec 11 Optimization: no thermal compensations, to 51nm, but no setbacks
+	--------by the end of the day, we found out that the SDTs have SA forces swapped
+2/11 Sec 11 Optimization: 6 iterations, to 40nm; 6 iteration, to ??nm
+	(after switching cables for single-double-triples)
+
+-------------Campaign 3------(blocked nozzles; fixed SDTs; ML improved measurement cadence)
+2/18 ---------no measurements: trouble on both test cell and ML software
+2/19 Sec 11 Optimization, ignore setbacks due to T jumps
+	later on 2/20 found out ML-GMTO interface problem with SDTs, data invalid
+2/20 Sec 10 BMs: 1-6, 25
+2/21 Sec 11 Optimization: start with Sec 5 initial forces; 27 modes; 17 iter, 37nm
+--2/22-2/23 cell off, TCs on
+2/24 Sec 10 BM: 7-27 (no 25)
+2/25 Sec 10 BM: repeat 21,22, 25, then did 28-40
+2/26 Sec 10 BM: repeat 21,22, 25, then did 41-46,
+     Sec 16 X BM: 1-6
+2/27 Sec 16 X BM: 7-10, Y BM: 1-10
+     Sec 17 HP IF: 1-2
+2/28 Sec 17 HP IF: 
+
 
 
