@@ -1,7 +1,7 @@
 ------------Campaign 1---------
 1/6: principal optics alignment
-1/7: Sec5 initial surface measurement; add 2 suckulators
-1/8: taping SA gap started night before; Restart suckulators around noon.
+1/7: Sec5 initial surface measurement; ***add 2 suckulators
+1/8: ***taping SA gap started night before; Restart suckulators around noon.
 1/9: Sec6 iter1 correction forces calculated; GMT not ready to apply them
 1/10: Sec6 iter1-6; will lower SA control boards into Lower Plenum later
 
@@ -9,47 +9,75 @@
 1/14 Sec8. repeatability; steps 1-14 done
 1/15 Sec8. repeatability finished 
 1/16 Sec9. single SA Influence Functions; 
-     [Sec 10 GMT BM 1-4 with +00+ measurements]
-1/17 [Sec 10 GMT BM 5-6 with +00+ measurements]
-     Sec 10 GMT BM 1-11 with +--+ measurements
+     [Sec10 GMT BM 1-4 with +00+ measurements]
+1/17 [Sec10 GMT BM 5-6 with +00+ measurements]
+     Sec10 GMT BM 1-11 with +--+ measurements
 
-1/21 Sec 10 GMT BM 12-27 with +--+ measurements
+1/21 Sec10 GMT BM 12-27 with +--+ measurements
 
 ------------Campaign 2--------- All SA control boards lowered & holes sealed--------
-1/27 Sec 10 GMT BM 25,26,27, ML BM 25,26,27
-1/28 Sec 10 ML BM 1-17
-1/29 Sec 10 ML BM 18-24, 
-     Sec 9. single SA repeats 4 + 10 new ones
-1/30 Sec 11 Optimization: 5 iter of RB+14BMs, to 60nm
-1/31 Sec 11 Optimization: 9 iter of RB+27BMs, to 35nm; 
-     Sec 14 disabling SAs but no unplugging
+1/27 Sec10 GMT BM 25,26,27, ML BM 25,26,27
+1/28 Sec10 ML BM 1-17
+1/29 Sec10 ML BM 18-24,
+     Sec9. single SA repeats 4 + 10 new ones
+1/30 Sec11 Optimization: 5 iter of RB+14BMs, to 60nm
+1/31 Sec11 Optimization: 9 iter of RB+27BMs, to 35nm;
+     Sec14 disabling SAs but no unplugging
 
-2/3 Sec 11, start from the 35nm surface, 6 iterations to 37nm 
-    Sec 10 BM 28-30
-2/4 Sec 10 BM 30-46
-2/5 Sec 15 RB vs BM, z: +/-0.25mm, 8 iters, to 43nm, then 6 iters, to 41nm
-2/6 Sec 15 RB vs BM, y: +/-0.50mm, 7 iters, to 38nm, then 7 iters, to 40nm 
-2/7 Sec 15 RB vs BM, Rz: +/- 20" , 7 iters, to 51nm, then 8 iters, to 32nm
+2/3 Sec11, start from the 35nm surface, 6 iterations to 37nm
+    Sec10 BM 28-30
+2/4 Sec10 BM 30-46
+2/5 Sec15 RB vs BM, z: +/-0.25mm, 8 iters, to 43nm, then 6 iters, to 41nm
+2/6 Sec15 RB vs BM, y: +/-0.50mm, 7 iters, to 38nm, then 7 iters, to 40nm
+2/7 Sec15 RB vs BM, Rz: +/- 20" , 7 iters, to 51nm, then 8 iters, to 32nm
 
-2/10 Sec 11 Optimization: no thermal compensations, to 51nm, but no setbacks
+2/10 Sec11 Optimization: no thermal compensations, to 51nm, but no setbacks
 	--------by the end of the day, we found out that the SDTs have SA forces swapped
-2/11 Sec 11 Optimization: 6 iterations, to 40nm; 6 iteration, to ??nm
+2/11 Sec11 Optimization: 6 iterations, to 40nm; 6 iteration, to ??nm
 	(after switching cables for single-double-triples)
 
 -------------Campaign 3------(blocked nozzles; fixed SDTs; ML improved measurement cadence)
 2/18 ---------no measurements: trouble on both test cell and ML software
-2/19 Sec 11 Optimization, ignore setbacks due to T jumps
+2/19 Sec11 Optimization, ignore setbacks due to T jumps
 	later on 2/20 found out ML-GMTO interface problem with SDTs, data invalid
-2/20 Sec 10 BMs: 1-6, 25
-2/21 Sec 11 Optimization: start with Sec 5 initial forces; 27 modes; 17 iter, 37nm
+2/20 Sec10 BMs: 1-6, 25
+2/21 Sec11 Optimization: start with Sec5 initial forces; 27 modes; 17 iter, 37nm
+
 --2/22-2/23 cell off, TCs on
-2/24 Sec 10 BM: 7-27 (no 25)
-2/25 Sec 10 BM: repeat 21,22, 25, then did 28-40
-2/26 Sec 10 BM: repeat 21,22, 25, then did 41-46,
-     Sec 16 X BM: 1-6
-2/27 Sec 16 X BM: 7-10, Y BM: 1-10
-     Sec 17 HP IF: 1-2
-2/28 Sec 17 HP IF: 
 
+2/24 Sec10 BM: 7-27 (no 25)
+2/25 Sec10 BM: repeat 21,22, 25, then did 28-40
+2/26 Sec10 BM: repeat 21,22, 25, then did 41-46,
+     Sec16 X BM: 1-6
+2/27 Sec16 X BM: 7-10, Y BM: 1-10
+     Sec17 HP IF: 1-2
+2/28 Sec16 Y BM repeats: 4, 9
+     Sec17 HP IF: 3-6
+     Sec18 decenter X
 
+3/3  --no work done; SA problems
+3/4  Sec18 decenter Y; prep for Sec19 PVT: move PMP to enable alignment around HP=(0,0,0,0,0,0)
+     ------sealed AHU holes (D=6 inch), 54-->26 ---- Tomas has diagram showing which ones-------
+3/5  Sec11 Optimization: Buddy requested to use BMs only toward the end.
+     Sec15 RB vs BM: +0.25mm z
+     ------sealed AHU holes, 26-->16
+3/6  Sec19 PVT test run
+     Sec15 RB vs BM: -0.25mm z
+3/7  Sec19 PVT test run
+     Sec15 RB vs BM: +0.5mm y, -0.5mm y
 
+3/10 Sec15 RB vs BM: Rz: +/- 20" (with r^6 spherical residual)
+3/11 Sec19 PVT
+3/12 Sec15 RB vs BM: Rz: +/- 20"
+3/13 ------Trupti gives design meeting presentation. Waiting on her to produce forces for next test
+3/14 Sec20 horizon x forces -> temperature compensation was not done correctly (Buddy emailed)
+
+3/17 Sec20 horizon y forces -> decided to have Bo write Section 20 test plan and redo it.
+rest of the week - no testing, due to other Mirror Lab activities (casting etc) and the disturbances to thermal environment
+
+3/24 Sec20 with +00+ measurements, and no optimization w 27 BMs;
+         later found Fz had wrong sign, and Fz was not applied at all
+3/25 Sec11 optimization with initial laser tracker measurements only.
+3/26 Sec20 repeat.
+3/27 no testing. Analyzing Sec20 and Sec17 data.
+3/28 Sec17 repeat.

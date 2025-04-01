@@ -379,9 +379,12 @@ def parse_ml_data_folder(folder_path):
         for file in files:
             if file.endswith(".h5"):
                 filename = os.path.join(root, file)
-                h5_files.append(filename)
                 m1s,centerRow,centerCol,pixelSize, ts = readH5Map([filename], verbose=False)
-                file_timestamps.append(ts)
+                if ts == 'date not in h5 file.':
+                    print('x', filename.split(folder_path)[-1])
+                else:
+                    file_timestamps.append(ts)
+                    h5_files.append(filename)
     sort_idx = np.argsort([unix_ts(ts) for ts in file_timestamps])
     sorted_files = np.array(h5_files)[sort_idx]
     sorted_timestamps = np.array(file_timestamps)[sort_idx]
@@ -670,7 +673,7 @@ def showForceMap_OCS(forces, figure_title):
 def showForceMap_M1B(forces, figure_title, precision=0):
     '''
     input: 
-        forces should already be in M1B
+        forces should already be in M1B; works for x, y, or z forces
     output:
         force map displayed in M1B
         
@@ -678,13 +681,16 @@ def showForceMap_M1B(forces, figure_title, precision=0):
     print('input forces and output figure both in M1B')
     format_str = f"{{:.{precision}f}}" 
     fig, ax = plt.subplots(1,1,figsize=(10,8))
-    plt.scatter(sax, say, c=forces) #, cmap=reversed_cmap)
-    #plt.scatter(sax_ml, say_ml, s=100, facecolors='none', edgecolors='k')
+    idx = forces != 0
+    plt.scatter(sax[idx], say[idx], c=forces[idx]) #, cmap=reversed_cmap)
+    if np.sum(idx) < nact:
+        plt.scatter(sax[~idx], say[~idx], s=100, facecolors='none', edgecolors='k')
     for i in range(len(sax)):
-        if (np.any(abs(sax[i]+say[i]-sax[:i]-say[:i])<1e-4)):
-            plt.text(sax[i]+.05, say[i]-0.15, f"{format_str.format(forces[i])}",color='r',fontsize=8)
-        else:
-            plt.text(sax[i]+.05, say[i]+.05, f"{format_str.format(forces[i])}",color='r',fontsize=8)
+        if idx[i]:
+            if (np.any(abs(sax[i]+say[i]-sax[:i]-say[:i])<1e-4)):
+                plt.text(sax[i]+.05, say[i]-0.15, f"{format_str.format(forces[i])}",color='r',fontsize=8)
+            else:
+                plt.text(sax[i]+.05, say[i]+.05, f"{format_str.format(forces[i])}",color='r',fontsize=8)
     plt.axis('equal')
     plt.xlabel('x in meter')
     plt.ylabel('y in meter')
@@ -777,7 +783,7 @@ def getDBData(myt, table_name, duration_in_s=60, samples=60):
     print(aa.shape)
     return aa, np.array(ts_data)
 
-def plotOptimization(m1s_array, m1rms_array, ts_array, zercoeff, ntsamples, bm_coeff_ntsamples, tt, mirror_pos_ntsamples, tambient, tc, band_width):
+def plotOptimization(m1s_array, m1rms_array, ts_array, zercoeff, ntsamples, bm_coeff_ntsamples, tt, mirror_pos_ntsamples, tambient, tc, band_width, iter_offset):
     '''
         all variables are global variables. Error occur if any has not been defined.
 
@@ -800,7 +806,7 @@ def plotOptimization(m1s_array, m1rms_array, ts_array, zercoeff, ntsamples, bm_c
         width = 1 / niter  # Normalize the width
         ax_img = fig.add_axes([left, 0.8, width, 0.15])  # [x, y, width, height] in figure coordinates
         ax_img.imshow(m1s_array[:,:,i], origin='lower', vmin=-200, vmax=200)
-        ax_img.set_title('#%d, %.0f nm'%(i+1, m1rms_array[i]), fontsize=8, pad=3)
+        ax_img.set_title('#%d, %.0f nm'%(i+1+iter_offset, m1rms_array[i]), fontsize=8, pad=3)
         ax_img.axis("off")  # Hide axes for clean layout
         
     # Compute elapsed time in minutes from t0
@@ -851,17 +857,30 @@ def plotOptimization(m1s_array, m1rms_array, ts_array, zercoeff, ntsamples, bm_c
         
     # Adjust layout to remove gaps between plots 1-4 and ensure good spacing
     plt.subplots_adjust(hspace=0, top=0.75)  # Set hspace to 0 to remove gap between subplots
-    for j in range(5):
+    for j in range(4):
         #ax[j].grid()
         ax[j].set_xlim(tt_minutes[0]-1, tt_minutes[-1])
         for i,t in enumerate(ts_minutes):
             ax[j].axvspan(t - band_width, t, color='gray', alpha=0.3)  # Ends at t, goes back 6 min
             if j==0:
-                ax[j].text(t - band_width / 2, ax[0].get_ylim()[1], f"iter\n{i + 1}", 
+                ax[j].text(t - band_width / 2, ax[0].get_ylim()[1], f"iter\n{i + 1 + iter_offset}", 
                         color='black', fontsize=12, fontweight='bold',
                         ha='center', va='bottom')  # Label bands at the top center        
 
-def plotOptimization1(m1s_array, m1rms_array, ts_array, zercoeff, ntsamples, bm_coeff_ntsamples, tt, mirror_pos_ntsamples, tambient, tc, band_width):
+    pvf = np.nanmax(tc[:,idx_mirror_f], axis=1) - np.nanmin(tc[:,idx_mirror_f], axis=1)
+    pvb = np.nanmax(tc[:,idx_mirror_b], axis=1) - np.nanmin(tc[:,idx_mirror_b], axis=1)
+    pvbf = np.nanmax(tc[:,idx_mirror_b]-tc[:,idx_mirror_f], axis=1) - np.nanmin(tc[:,idx_mirror_b]-tc[:,idx_mirror_f], axis=1)
+    avebf = np.nanmean(tc[:,idx_mirror_b]-tc[:,idx_mirror_f], axis=1)
+    t_interval = tt_minutes[1]-tt_minutes[0]
+    for i,t in enumerate(tt_minutes):
+        tcondi = np.sum([pvf[i]<0.2, pvb[i]<0.2, pvbf[i]<0.15, avebf[i]<0.05])
+        if tcondi>0:
+            #print(t, tcondi) #pvbf[i], avebf[i])
+            left = t - 0.5*t_interval  # Halfway to the previous point
+            right = t + 0.5*t_interval  # Halfway to the next point
+            ax[4].axvspan(left, right, facecolor='lightgreen', alpha=0.25*tcondi)  # No edge color
+            
+def plotOptimization1(m1s_array, m1rms_array, ts_array, zercoeff, ntsamples, bm_coeff_ntsamples, tt, mirror_pos_ntsamples, tambient, tc, band_width, iter_offset):
     '''
         all variables are global variables. Error occur if any has not been defined.
 
@@ -885,7 +904,7 @@ def plotOptimization1(m1s_array, m1rms_array, ts_array, zercoeff, ntsamples, bm_
         ax_img = fig.add_axes([left, 0.8, width, 0.15])  # [x, y, width, height] in figure coordinates
         ax_img.imshow(m1s_array[:,:,i], origin='lower', vmin=-200, vmax=200)
         if niter<=10:
-            ax_img.set_title('iter %d, %.0f nm'%(i+1, m1rms_array[i]), fontsize=8, pad=3)
+            ax_img.set_title('iter %d, %.0f nm'%(i+1+iter_offset, m1rms_array[i]), fontsize=8, pad=3)
         else:
             ax_img.set_title('%.0f nm'%(m1rms_array[i]), fontsize=8, pad=3)
             ax_img.text(0.5, -0.3, "%d"%(i+1), fontsize=12, ha="center", transform=ax_img.transAxes)
@@ -956,18 +975,33 @@ def plotOptimization1(m1s_array, m1rms_array, ts_array, zercoeff, ntsamples, bm_
         
     # Adjust layout to remove gaps between plots 1-4 and ensure good spacing
     plt.subplots_adjust(hspace=0, top=0.75)  # Set hspace to 0 to remove gap between subplots
-    for j in range(6):
+    for j in range(4):
         #ax[j].grid()
         ax[j].set_xlim(tt_minutes[0]-1, tt_minutes[-1])
         for i,t in enumerate(ts_minutes):
             ax[j].axvspan(t - band_width, t, color='gray', alpha=0.3)  # Ends at t, goes back 6 min
             if j==0:
-                ax[j].text(t - band_width / 2, ax[0].get_ylim()[1], f"iter\n{i + 1}", 
+                ax[j].text(t - band_width / 2, ax[0].get_ylim()[1], f"iter\n{i + 1+iter_offset}", 
                         color='black', fontsize=12, fontweight='bold',
-                        ha='center', va='bottom')  # Label bands at the top center        
+                        ha='center', va='bottom')  # Label bands at the top center     
+
+    pvf = np.nanmax(tc[:,idx_mirror_f], axis=1) - np.nanmin(tc[:,idx_mirror_f], axis=1)
+    pvb = np.nanmax(tc[:,idx_mirror_b], axis=1) - np.nanmin(tc[:,idx_mirror_b], axis=1)
+    pvbf = np.nanmax(tc[:,idx_mirror_b]-tc[:,idx_mirror_f], axis=1) - np.nanmin(tc[:,idx_mirror_b]-tc[:,idx_mirror_f], axis=1)
+    avebf = np.nanmean(tc[:,idx_mirror_b]-tc[:,idx_mirror_f], axis=1)
+    t_interval = tt_minutes[1]-tt_minutes[0]
+    for i,t in enumerate(tt_minutes):
+        tcondi = np.sum([pvf[i]<0.2, pvb[i]<0.2, pvbf[i]<0.15, avebf[i]<0.05])
+        if tcondi>0:
+            #print(t, tcondi) #pvbf[i], avebf[i])
+            left = t - 0.5*t_interval  # Halfway to the previous point
+            right = t + 0.5*t_interval  # Halfway to the next point
+            ax[4].axvspan(left, right, facecolor='lightgreen', alpha=0.25*tcondi)  # No edge color
+            ax[5].axvspan(left, right, facecolor='lightgreen', alpha=0.25*tcondi)  # No edge color
+    for j in range(6):
         for spine in ax[j].spines.values():
             spine.set_linewidth(3)  # Change this value to adjust thickness
-                
+            
 def find_cmd_file(folder_path, given_timestamp):
     """
     Finds the last .txt file in the folder with a Unix timestamp before the given timestamp.
