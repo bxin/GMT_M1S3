@@ -1,3 +1,7 @@
-#python batch_OT.py 250131 4 | grep PSSn
-python batch_OT.py 250203 6 | grep PSSn
-
+python batch_OT.py 250131 4 | grep -E 'PSSn|GMT3'
+python batch_OT.py 250203 6 | grep -E 'PSSn|GMT3'
+python batch_OT.py 250211 5 | grep -E 'PSSn|GMT3'
+python batch_OT.py 250219 6 | grep -E 'PSSn|GMT3'
+python batch_OT.py 250221 6 | grep -E 'PSSn|GMT3'
+python batch_OT.py 250221 9 | grep -E 'PSSn|GMT3'
+python batch_OT.py 250221 15 | grep -E 'PSSn|GMT3'
