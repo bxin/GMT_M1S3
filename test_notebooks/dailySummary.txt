@@ -33,7 +33,7 @@
 
 2/10 Sec11 Optimization: no thermal compensations, to 51nm, but no setbacks
 	--------by the end of the day, we found out that the SDTs have SA forces swapped
-2/11 Sec11 Optimization: 6 iterations, to 40nm; 6 iteration, to ??nm
+2/11 Sec11 Optimization: 6 iterations, to 40nm; 6 iteration, to 44nm
 	(after switching cables for single-double-triples)
 
 -------------Campaign 3------(blocked nozzles; fixed SDTs; ML improved measurement cadence)

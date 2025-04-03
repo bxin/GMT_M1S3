@@ -783,12 +783,14 @@ def getDBData(myt, table_name, duration_in_s=60, samples=60):
     print(aa.shape)
     return aa, np.array(ts_data)
 
-def plotOptimization(m1s_array, m1rms_array, ts_array, zercoeff, ntsamples, bm_coeff_ntsamples, tt, mirror_pos_ntsamples, tambient, tc, band_width, iter_offset):
+def plotOptimization(m1s_array, m1rms_array, ts_array, zercoeff, ntsamples, bm_coeff_ntsamples, tt, mirror_pos_ntsamples, tambient, tc, band_width, iter_offset=0, iterStr=None):
     '''
         all variables are global variables. Error occur if any has not been defined.
 
     '''
     niter = len(ts_array)
+    if iterStr == None:
+        iterStr = ['%d'%(i + 1 + iter_offset) for i in range(niter)]
     assert niter == m1s_array.shape[2]
     assert niter == m1rms_array.shape[0]
     assert niter == zercoeff.shape[0]
@@ -857,13 +859,15 @@ def plotOptimization(m1s_array, m1rms_array, ts_array, zercoeff, ntsamples, bm_c
         
     # Adjust layout to remove gaps between plots 1-4 and ensure good spacing
     plt.subplots_adjust(hspace=0, top=0.75)  # Set hspace to 0 to remove gap between subplots
+    if iterStr == None:
+        iterStr = ['%d'%(i + 1 + iter_offset) for i in range(niter)]
     for j in range(4):
         #ax[j].grid()
         ax[j].set_xlim(tt_minutes[0]-1, tt_minutes[-1])
         for i,t in enumerate(ts_minutes):
             ax[j].axvspan(t - band_width, t, color='gray', alpha=0.3)  # Ends at t, goes back 6 min
             if j==0:
-                ax[j].text(t - band_width / 2, ax[0].get_ylim()[1], f"iter\n{i + 1 + iter_offset}", 
+                ax[j].text(t - band_width / 2, ax[0].get_ylim()[1], f"iter\n{iterStr[i]}", 
                         color='black', fontsize=12, fontweight='bold',
                         ha='center', va='bottom')  # Label bands at the top center        
 
@@ -880,12 +884,14 @@ def plotOptimization(m1s_array, m1rms_array, ts_array, zercoeff, ntsamples, bm_c
             right = t + 0.5*t_interval  # Halfway to the next point
             ax[4].axvspan(left, right, facecolor='lightgreen', alpha=0.25*tcondi)  # No edge color
             
-def plotOptimization1(m1s_array, m1rms_array, ts_array, zercoeff, ntsamples, bm_coeff_ntsamples, tt, mirror_pos_ntsamples, tambient, tc, band_width, iter_offset):
+def plotOptimization1(m1s_array, m1rms_array, ts_array, zercoeff, ntsamples, bm_coeff_ntsamples, tt, mirror_pos_ntsamples, tambient, tc, band_width, iter_offset=0, iterStr=None):
     '''
         all variables are global variables. Error occur if any has not been defined.
 
     '''
     niter = len(ts_array)
+    if iterStr == None:
+        iterStr = ['%d'%(i + 1 + iter_offset) for i in range(niter)]
     assert niter == m1s_array.shape[2]
     assert niter == m1rms_array.shape[0]
     assert niter == zercoeff.shape[0]
@@ -904,7 +910,7 @@ def plotOptimization1(m1s_array, m1rms_array, ts_array, zercoeff, ntsamples, bm_
         ax_img = fig.add_axes([left, 0.8, width, 0.15])  # [x, y, width, height] in figure coordinates
         ax_img.imshow(m1s_array[:,:,i], origin='lower', vmin=-200, vmax=200)
         if niter<=10:
-            ax_img.set_title('iter %d, %.0f nm'%(i+1+iter_offset, m1rms_array[i]), fontsize=8, pad=3)
+            ax_img.set_title('iter %s, %.0f nm'%(iterStr[i], m1rms_array[i]), fontsize=8, pad=3)
         else:
             ax_img.set_title('%.0f nm'%(m1rms_array[i]), fontsize=8, pad=3)
             ax_img.text(0.5, -0.3, "%d"%(i+1), fontsize=12, ha="center", transform=ax_img.transAxes)
@@ -981,7 +987,7 @@ def plotOptimization1(m1s_array, m1rms_array, ts_array, zercoeff, ntsamples, bm_
         for i,t in enumerate(ts_minutes):
             ax[j].axvspan(t - band_width, t, color='gray', alpha=0.3)  # Ends at t, goes back 6 min
             if j==0:
-                ax[j].text(t - band_width / 2, ax[0].get_ylim()[1], f"iter\n{i + 1+iter_offset}", 
+                ax[j].text(t - band_width / 2, ax[0].get_ylim()[1], f"iter\n{iterStr[i]}", 
                         color='black', fontsize=12, fontweight='bold',
                         ha='center', va='bottom')  # Label bands at the top center     
 
