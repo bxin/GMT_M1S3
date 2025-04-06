@@ -718,7 +718,9 @@ def printDBVar(myt, table_name, duration_in_s=1):
     records = tele.find({"ts":{"$gt":start_time*1000000000.0,"$lt":end_time*1000000000.0},
                      "src":{"$eq":f"{table_name}"}})
     for record in records:
-        print(record['value'])
+        print('-----------',
+            datetime.fromtimestamp((record["ts"]/ 1000000000.0)).strftime('%Y-%m-%d %H:%M:%S'), 
+              record['value'])
 
 def getDBData(myt, table_name, duration_in_s=60, samples=60):
     '''
