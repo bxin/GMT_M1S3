@@ -2,7 +2,7 @@
 1/6: principal optics alignment
 1/7: Sec5 initial surface measurement; ***add 2 suckulators
 1/8: ***taping SA gap started night before; Restart suckulators around noon.
-1/9: Sec6 iter1 correction forces calculated; GMT not ready to apply them
+1/9: Sec5 without Active Optic forces; iter1 corrections calculated; GMT not ready to apply them
 1/10: Sec6 iter1-6; will lower SA control boards into Lower Plenum later
 
 1/13 Sec7. winner=2 measurements x (30 samples x 2s) = (60 samples x 2s)

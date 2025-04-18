@@ -863,9 +863,10 @@ def plotOptimization(m1s_array, m1rms_array, ts_array, zercoeff, ntsamples, bm_c
     plt.subplots_adjust(hspace=0, top=0.75)  # Set hspace to 0 to remove gap between subplots
     if iterStr == None:
         iterStr = ['%d'%(i + 1 + iter_offset) for i in range(niter)]
-    for j in range(4):
+    for j in range(5):
         #ax[j].grid()
         ax[j].set_xlim(tt_minutes[0]-1, tt_minutes[-1])
+    for j in range(4):
         for i,t in enumerate(ts_minutes):
             ax[j].axvspan(t - band_width, t, color='gray', alpha=0.3)  # Ends at t, goes back 6 min
             if j==0:
@@ -983,9 +984,10 @@ def plotOptimization1(m1s_array, m1rms_array, ts_array, zercoeff, ntsamples, bm_
         
     # Adjust layout to remove gaps between plots 1-4 and ensure good spacing
     plt.subplots_adjust(hspace=0, top=0.75)  # Set hspace to 0 to remove gap between subplots
-    for j in range(4):
+    for j in range(6):
         #ax[j].grid()
         ax[j].set_xlim(tt_minutes[0]-1, tt_minutes[-1])
+    for j in range(4):
         for i,t in enumerate(ts_minutes):
             ax[j].axvspan(t - band_width, t, color='gray', alpha=0.3)  # Ends at t, goes back 6 min
             if j==0:
